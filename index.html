@@ -78,6 +78,8 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 .goal b{display:block;font-size:1.05rem}
 .next-title{font-size:.85rem;color:var(--muted)}
 .hero-actions{display:grid;gap:10px}
+.hero .review-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+.hero .review-line b{font-size:1.05rem}
 .storage-warn{padding:12px 14px;font-size:.88rem;background:var(--bad-soft);border-color:transparent;color:var(--text)}
 .units{display:grid;gap:12px}
 .unit{padding:16px}
@@ -91,6 +93,7 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 .lesson-dot{flex:none;padding:0}.lesson-dot svg{width:20px;height:20px}
 .card.search{min-width:0}.card.search input{min-width:0;width:100%}
 .lesson-dot.passed{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lesson-dot.passed.learning{background:var(--accent-soft);color:var(--accent);border-color:var(--accent)}
 .lesson-dot.next{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
 .lesson-dot:active{transform:scale(.95)}
 
@@ -356,6 +359,7 @@ function load() {
       }
     }
   } catch (e) { S = freshState(); }
+  if (migrateSrs()) save();
 }
 function save() { lsSet(KEY, JSON.stringify(S)); }
 
@@ -377,21 +381,37 @@ function addXp(n) {
   return before === 0; // first activity today → streak extended
 }
 
-/* ---------- spaced repetition (simple Leitner) ---------- */
-const INTERVALS = [0, 1, 3, 7, 16, 35].map(d => d * 864e5);
+/* ---------- spaced repetition: Leitner boxes 1–5 → 1, 3, 7, 14, 30 days ---------- */
+const BOX_DAYS = [0, 1, 3, 7, 14, 30];
+const SRS_V = 1; // S.srsV: version of the schedule; older saves get migrated once
+function dayStart(t = Date.now()) { const d = new Date(t); d.setHours(0, 0, 0, 0); return d.getTime(); }
+function dueIn(days) { return addDays(new Date(dayStart()), days).getTime(); }
 function ws(w) { return S.words[w.id] || { s: 0, due: 0, seen: 0, ok: 0, bad: 0 }; }
-function mark(w, ok) {
-  const r = Object.assign({ s: 0, due: 0, seen: 1, ok: 0, bad: 0 }, S.words[w.id]);
+function rec(w) { return (S.words[w.id] = Object.assign({ s: 0, due: 0, seen: 0, ok: 0, bad: 0 }, S.words[w.id])); }
+function isDue(w) { const r = S.words[w.id]; return !!(r && r.seen && r.due <= Date.now()); }
+// a word finished its first lesson: box 1, comes back tomorrow
+function srsLearned(w) { const r = rec(w); r.seen = 1; r.s = Math.max(1, r.s || 0); r.due = dueIn(BOX_DAYS[1]); }
+// first answer about an already known word in a session
+function srsAnswer(w, ok) {
+  const r = rec(w);
+  if (ok) { if (r.due <= Date.now()) { r.s = Math.min(5, Math.max(1, r.s || 0) + 1); r.due = dueIn(BOX_DAYS[r.s]); } } // early answers don't move the box
+  else { r.s = 1; r.due = dueIn(BOX_DAYS[1]); } // mistake: back to box 1
   r.seen = 1;
-  if (ok) { r.ok++; r.s = Math.min(5, r.s + 1); r.due = Date.now() + INTERVALS[r.s]; }
-  else { r.bad++; r.s = Math.max(0, r.s - 1); r.due = Date.now(); }
-  S.words[w.id] = r;
+}
+function migrateSrs() {
+  if ((S.srsV || 0) >= SRS_V) return false;
+  // words learned with the old engine → box 1, due today…in two days (weakest first)
+  const known = WORDS.filter(w => { const r = S.words[w.id]; return r && (r.seen || r.s > 0); })
+    .sort((a, b) => ws(a).s - ws(b).s || ws(b).bad - ws(a).bad || ws(a).due - ws(b).due);
+  const perDay = Math.max(10, Math.ceil(known.length / 3));
+  known.forEach((w, i) => { const r = rec(w); r.seen = 1; r.s = 1; r.due = dueIn(Math.min(2, Math.floor(i / perDay))); });
+  S.srsV = SRS_V;
+  return true;
 }
 function dueWords() {
-  const now = Date.now();
-  return WORDS.filter(w => S.words[w.id] && S.words[w.id].seen && S.words[w.id].due <= now)
-    .sort((a, b) => ws(a).s - ws(b).s || ws(a).due - ws(b).due);
+  return WORDS.filter(isDue).sort((a, b) => ws(a).s - ws(b).s || ws(a).due - ws(b).due);
 }
+function lessonMastered(ui, li) { return UNITS[ui].lessons[li].every(w => ws(w).s >= 2); }
 function lessonKey(ui, li) { return UNITS[ui].id + "-" + li; }
 function lessonDone(ui, li) { return !!S.lessons[lessonKey(ui, li)]; }
 function nextLesson() {
@@ -452,13 +472,33 @@ function clash(a, b) {
   const ta = rusTokens(a.rus), tb = rusTokens(b.rus);
   return ta.some(x => tb.includes(x));
 }
-function distractors(w, n, pool) {
-  const ok = x => x !== w && !clash(x, w);
-  let cand = shuffle((pool || []).filter(ok));
-  const same = shuffle(UNITS[w.unit].list.filter(x => ok(x) && x.kind === w.kind && !cand.includes(x)));
-  const rest = shuffle(WORDS.filter(x => ok(x) && x.kind === w.kind && !cand.includes(x) && !same.includes(x)));
-  const out = [];
-  for (const x of [...cand, ...same, ...rest]) { if (out.length >= n) break; if (!out.some(o => clash(o, x))) out.push(x); }
+function stems(s) { return s.toLowerCase().replace(/ё/g, "е").replace(/\([^)]*\)/g, " ").split(/[^а-яa-z]+/).filter(x => x.length >= 4).map(x => x.slice(0, 5)); }
+function cpre(a, b) { let i = 0; while (i < a.length && i < b.length && a[i] === b[i]) i++; return i; }
+function familiar(x) { return !!(ws(x).seen || (SES && SES.introduced && SES.introduced.has(x.id))); }
+// how good a wrong option x is for word w: same declension/gender, similar spelling or meaning, already met
+function plausibility(x, w, mode) {
+  let sc = 0;
+  if (x.unit === w.unit) sc += 3;
+  sc += x.kind === w.kind ? 2 : -5;
+  if (x.gram && x.gram === w.gram) sc += 2;
+  if (x.gender && x.gender === w.gender) sc += 1;
+  if (mode === "lat") {
+    const a = norm(x.head), b = norm(w.head), rv = t => [...t].reverse().join("");
+    sc += Math.min(3, cpre(a, b)) * 0.9 + Math.min(4, cpre(rv(a), rv(b))) * 0.5;
+    if (Math.abs(a.length - b.length) <= 2) sc += 1;
+  } else if (Math.abs(x.rus.length - w.rus.length) <= 6) sc += 1;
+  const sa = stems(x.rus), sb = stems(w.rus);
+  if (sa.some(t => sb.includes(t))) sc += 3; // «…кость», «…мышца», «…железа»
+  if (familiar(x)) sc += 2;
+  return sc + Math.random() * 3;
+}
+function distractors(w, n, mode = "rus") {
+  const cand = WORDS.filter(x => x !== w && !clash(x, w)).map(x => [x, plausibility(x, w, mode)]).sort((a, b) => b[1] - a[1]).map(p => p[0]);
+  const out = [], add = x => { if (out.length < n && !out.includes(x) && !out.some(o => clash(o, x))) out.push(x); };
+  // at least two options the learner has already met — the right answer must not be the only familiar word
+  const fam = cand.filter(familiar);
+  for (const x of fam) { if (out.length >= Math.min(2, n)) break; add(x); }
+  cand.forEach(add);
   return out;
 }
 function norm(s) {
@@ -514,7 +554,8 @@ function render() {
 function renderLearn() {
   const nx = nextLesson(), due = dueWords().length, goal = S.settings.goal, tx = todayXp();
   const pct = Math.min(1, tx / goal), C = 2 * Math.PI * 24;
-  const learned = WORDS.filter(w => ws(w).s >= 1).length;
+  const learned = WORDS.filter(w => ws(w).s >= 2).length, seenN = WORDS.filter(w => ws(w).seen).length;
+  const dueTxt = due + " " + plural(due, "слово", "слова", "слов");
   const nxTxt = nx ? `${esc(UNITS[nx[0]].title)} · урок ${nx[1] + 1}` : "Все уроки пройдены";
   let h = `<div class="home"><div class="side">
     <h2 class="sec">Сегодня</h2>
@@ -523,29 +564,32 @@ function renderLearn() {
         <svg class="ring" viewBox="0 0 56 56"><circle class="bgc" cx="28" cy="28" r="24"/><circle class="fgc" cx="28" cy="28" r="24" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 28 28)"/></svg>
         <div><b>${tx} / ${goal} XP</b><span class="muted">${tx >= goal ? "Цель дня выполнена" : "Цель дня"}</span></div>
       </div>
+      <div class="review-line"><div><div class="next-title">Повторение</div><b id="dueN">${due ? `Повторение: ${dueTxt}` : seenN ? "На сегодня всё повторено" : "Появится после первого урока"}</b></div></div>
       <div><div class="next-title">Следующий урок</div><div style="font-weight:650">${nxTxt}</div></div>
       <div class="hero-actions">
-        ${nx ? `<button class="btn" id="goNext">${IC.play} Продолжить</button>` : ""}
-        <button class="btn ghost" id="goReview" ${due || learned ? "" : "disabled"}>${IC.repeat} Повторение${due ? ` · ${due}` : ""}</button>
+        ${due ? `<button class="btn" id="goReview">${IC.repeat} Повторить ${dueTxt}</button>` : ""}
+        ${nx ? `<button class="btn ${due ? "ghost" : ""}" id="goNext">${IC.play} ${due ? "Новый урок" : "Продолжить"}</button>` : ""}
+        ${due ? "" : `<button class="btn ghost" id="goReview" ${seenN ? "" : "disabled"}>${IC.repeat} Повторить слабые слова</button>`}
       </div>
     </div>
     ${storageOK ? "" : `<div class="card storage-warn">Браузер не даёт сохранять прогресс в этом режиме. Откройте файл в Chrome или Safari, а не во встроенном просмотрщике, или сохраняйте прогресс в файл во вкладке «Прогресс».</div>`}
-    <div class="card stat"><b>${learned} <span class="muted" style="font-size:1rem">из ${WORDS.length}</span></b><span>слов изучено</span></div>
+    <div class="card stat"><b>${learned} <span class="muted" style="font-size:1rem">из ${WORDS.length}</span></b><span>слов выучено${seenN > learned ? ` · ещё ${seenN - learned} в изучении` : ""}</span></div>
   </div><div class="main"><h2 class="sec">Разделы</h2><div class="units">`;
   UNITS.forEach(u => {
     const doneL = u.lessons.filter((_, li) => lessonDone(u.idx, li)).length;
     h += `<div class="card unit"><div class="unit-head"><h3>${esc(u.title)}</h3><span class="cnt">${u.list.length} ${plural(u.list.length, "слово", "слова", "слов")}</span></div>
       <div class="bar"><i style="width:${doneL / u.lessons.length * 100}%"></i></div><div class="lessons">`;
     u.lessons.forEach((_, li) => {
-      const d = lessonDone(u.idx, li), isNext = nx && nx[0] === u.idx && nx[1] === li;
-      h += `<button class="lesson-dot ${d ? "passed" : ""} ${isNext ? "next" : ""}" data-l="${u.idx},${li}" aria-label="Урок ${li + 1}${d ? ", пройден" : ""}">${d ? IC.check : li + 1}</button>`;
+      const d = lessonDone(u.idx, li), m = d && lessonMastered(u.idx, li), isNext = nx && nx[0] === u.idx && nx[1] === li;
+      const lbl = d ? (m ? ", выучен" : ", пройден, слова на повторении") : "";
+      h += `<button class="lesson-dot ${d ? "passed" : ""} ${d && !m ? "learning" : ""} ${isNext ? "next" : ""}" data-l="${u.idx},${li}" title="Урок ${li + 1}${lbl}" aria-label="Урок ${li + 1}${lbl}">${d ? IC.check : li + 1}</button>`;
     });
     h += `</div></div>`;
   });
   h += `</div></div></div>`;
   $("#tab-learn").innerHTML = h;
   const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
-  $("#goReview").onclick = startReview;
+  const gr = $("#goReview"); if (gr) gr.onclick = startReview;
   $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
 }
 
@@ -584,7 +628,7 @@ function renderDictList() {
 
 /* ---------- stats tab ---------- */
 function renderStats() {
-  const learned = WORDS.filter(w => ws(w).s >= 1).length, strong = WORDS.filter(w => ws(w).s >= 4).length;
+  const learned = WORDS.filter(w => ws(w).s >= 2).length, strong = WORDS.filter(w => ws(w).s >= 4).length;
   const lessonsDone = Object.keys(S.lessons).length, totalL = UNITS.reduce((a, u) => a + u.lessons.length, 0);
   const days = []; for (let i = 6; i >= 0; i--) days.push(addDays(new Date(), -i));
   const mx = Math.max(S.settings.goal, ...days.map(d => S.days[dayKey(d)] || 0));
@@ -595,14 +639,14 @@ function renderStats() {
     <div class="stat-grid">
       <div class="card stat"><b>${streak()}</b><span>${plural(streak(), "день", "дня", "дней")} подряд</span></div>
       <div class="card stat"><b>${S.xp}</b><span>XP всего</span></div>
-      <div class="card stat"><b>${learned}</b><span>из ${WORDS.length} слов</span></div>
+      <div class="card stat"><b>${learned}</b><span>из ${WORDS.length} выучено</span></div>
       <div class="card stat"><b>${lessonsDone}/${totalL}</b><span>уроков</span></div>
     </div>
     <h2 class="sec">Последние 7 дней</h2>
     <div class="card week">${days.map(d => { const x = S.days[dayKey(d)] || 0; return `<div><span>${x || ""}</span><i class="${x ? "f" : ""}" style="height:${Math.max(4, x / mx * 70)}px"></i>${wd[d.getDay()]}</div>`; }).join("")}</div>
     <h2 class="sec">По разделам</h2>
-    <div class="card settings">${UNITS.map(u => { const k = u.list.filter(w => ws(w).s >= 1).length; return `<div class="set"><div class="lbl">${esc(u.title)}<small>${k} из ${u.list.length} · ${u.list.filter(w => ws(w).s >= 4).length} прочно</small></div><div class="bar" style="width:38%;margin:0"><i style="width:${k / u.list.length * 100}%"></i></div></div>`; }).join("")}</div>
-    <p class="muted" style="font-size:.85rem;margin:10px 4px">Прочно — слово правильно отвечено 4+ раза с интервалами. Лучшая серия: ${S.bestStreak || 0}.</p>
+    <div class="card settings">${UNITS.map(u => { const k = u.list.filter(w => ws(w).seen).length; return `<div class="set"><div class="lbl">${esc(u.title)}<small>${k} из ${u.list.length} начато · ${u.list.filter(w => ws(w).s >= 2).length} выучено · ${u.list.filter(w => ws(w).s >= 4).length} прочно</small></div><div class="bar" style="width:38%;margin:0"><i style="width:${k / u.list.length * 100}%"></i></div></div>`; }).join("")}</div>
+    <p class="muted" style="font-size:.85rem;margin:10px 4px">Слово возвращается на повторение через 1, 3, 7, 14 и 30 дней; ошибка возвращает его к началу. Выучено — вспомнено хотя бы на одном повторении в другой день, прочно — 3+ повторения подряд без ошибок. Лучшая серия: ${S.bestStreak || 0}.</p>
   </div><div>
     <h2 class="sec">Настройки</h2>
     <div class="card settings">
@@ -631,7 +675,7 @@ function renderStats() {
   $("#sTheme").onchange = e => { S.settings.theme = e.target.value; save(); applyTheme(); };
   $("#sExport").onclick = exportProgress;
   $("#sImport").onclick = () => $("#importFile").click();
-  $("#sReset").onclick = () => { if (confirm("Сбросить весь прогресс, XP и серию? Это нельзя отменить.")) { const st = S.settings; S = freshState(); S.settings = st; save(); render(); toast("Прогресс сброшен"); } };
+  $("#sReset").onclick = () => { if (confirm("Сбросить весь прогресс, XP и серию? Это нельзя отменить.")) { const st = S.settings; S = freshState(); S.settings = st; migrateSrs(); save(); render(); toast("Прогресс сброшен"); } };
 }
 function applyTheme() { const t = S.settings.theme; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); }
 function exportProgress() {
@@ -645,54 +689,126 @@ $("#importFile").addEventListener("change", e => {
   const r = new FileReader();
   r.onload = () => {
     try { const d = JSON.parse(r.result); if (!d || d.v !== 2 || typeof d.words !== "object") throw 0;
-      S = Object.assign(freshState(), d); S.settings = Object.assign(freshState().settings, d.settings || {}); save(); applyTheme(); render(); toast("Прогресс загружен");
+      S = Object.assign(freshState(), d); S.settings = Object.assign(freshState().settings, d.settings || {}); migrateSrs(); save(); applyTheme(); render(); toast("Прогресс загружен");
     } catch (err) { toast("Не похоже на файл прогресса"); }
     e.target.value = "";
   };
   r.readAsText(f);
 });
 
-/* ---------- session engine ---------- */
+/* ---------- session engine ----------
+   Interleaved practice: every lesson word goes intro → recognition (choose translation) →
+   reverse (choose Latin) → recall (type it / gender). Each step of the same word waits a few
+   tasks (GAP_*), filled with other words — warm-up of due words, older words, other new words.
+   New words come in small batches; a wrong answer comes back 3–5 tasks later (no lives). */
+const GAP_INTRO = 4, GAP_OK = 3, BATCH = 3, WARMUP = 3;
 let SES = null;
-function buildSteps(words, mode) {
-  const steps = [];
-  if (mode === "lesson") {
-    words.forEach(w => { if (!ws(w).seen) steps.push({ t: "intro", w }); steps.push({ t: "l2r", w }); });
-    if (words.length >= 4) steps.push({ t: "match", ws: sample(words, Math.min(5, words.length)) });
-    const typed = new Set(sample(words, Math.ceil(words.length / 3)));
-    shuffle(words).forEach(w => {
-      if (typed.has(w)) steps.push({ t: "type", w });
-      else if (w.kind === "noun" && Math.random() < 0.35) steps.push({ t: "gender", w });
-      else steps.push({ t: "r2l", w });
-    });
-  } else {
-    shuffle(words).forEach((w, i) => {
-      const s = ws(w).s, r = Math.random();
-      steps.push({ t: s >= 2 && r < 0.45 ? "type" : (w.kind === "noun" && r > 0.8 ? "gender" : (r < 0.7 ? "r2l" : "l2r")), w });
-    });
-    if (words.length >= 4) steps.splice(Math.min(3, steps.length), 0, { t: "match", ws: sample(words, Math.min(5, words.length)) });
-  }
-  return steps;
+const multiGender = w => w.kind === "noun" && w.unit > 0;
+function recallType(w) { return multiGender(w) && Math.random() < 0.25 ? "gender" : "type"; }
+function reviewType(w) {
+  const s = ws(w).s, r = Math.random();
+  if (s <= 1) return r < 0.55 ? "r2l" : "l2r";
+  if (s === 2) return r < 0.5 ? "type" : "r2l";
+  return multiGender(w) && r < 0.2 ? "gender" : "type";
 }
+function learnItem(w, fresh) { return { w, kind: "learn", fresh, stages: (fresh ? ["intro"] : []).concat(["l2r", "r2l", recallType(w)]), i: 0, ready: 0, misses: 0 }; }
+function revItem(w, tag) { return { w, kind: "rev", tag, stages: [reviewType(w)], i: 0, ready: 0, misses: 0 }; }
 function startLesson(ui, li) {
-  const words = UNITS[ui].lessons[li];
-  startSession({ mode: "lesson", ui, li, words, title: `${UNITS[ui].title} · урок ${li + 1}` });
+  const words = UNITS[ui].lessons[li], inL = new Set(words.map(w => w.id));
+  const due = dueWords().filter(w => !inL.has(w.id));
+  const warm = due.slice(0, WARMUP);
+  const older = shuffle(WORDS.filter(w => ws(w).seen && !inL.has(w.id) && !isDue(w))).sort((a, b) => ws(a).s - ws(b).s);
+  startSession({ mode: "lesson", ui, li, words, title: `${UNITS[ui].title} · урок ${li + 1}`,
+    items: [...warm.map(w => revItem(w, "warm")), ...words.map(w => learnItem(w, !ws(w).seen))],
+    pool: [...due.slice(WARMUP, WARMUP + 8), ...older.slice(0, 12)] });
 }
 function startReview() {
-  let words = dueWords();
+  let words = dueWords().slice(0, 15), extra = false;
   if (words.length < 6) {
-    const extra = WORDS.filter(w => ws(w).seen && !words.includes(w)).sort((a, b) => ws(a).s - ws(b).s || ws(a).due - ws(b).due);
-    words = words.concat(extra).slice(0, 10);
+    const more = shuffle(WORDS.filter(w => ws(w).seen && !words.includes(w))).sort((a, b) => ws(a).s - ws(b).s || ws(b).bad - ws(a).bad);
+    extra = !words.length; words = words.concat(more.slice(0, 6 - words.length));
   }
-  words = words.slice(0, 10);
   if (!words.length) { toast("Сначала пройдите хотя бы один урок"); return; }
-  startSession({ mode: "review", words, title: "Повторение" });
+  const rest = shuffle(WORDS.filter(w => ws(w).seen && !words.includes(w))).slice(0, 6);
+  startSession({ mode: "review", words, title: extra ? "Повторение слабых слов" : "Повторение", items: shuffle(words).map(w => revItem(w, "rev")), pool: [], spare: rest });
 }
 function startSession(o) {
-  SES = Object.assign(o, { queue: buildSteps(o.words, o.mode), done: 0, mistakes: 0, answered: 0, firstTry: 0, t0: Date.now(), wrongWords: new Set(), seenOk: new Set() });
+  SES = Object.assign(o, { step: -1, hist: [], log: [], done: 0, mistakes: 0, answered: 0, firstTry: 0, t0: Date.now(),
+    wrongWords: new Set(), introduced: new Set(), srsDone: new Set(), extraUsed: new Set(), matched: false,
+    known: new Set(WORDS.filter(w => ws(w).seen).map(w => w.id)) });
+  SES.queue = { get length() { return sesLeft(); } }; // compat for progress bar / tests
   $("#session").classList.remove("hidden");
   document.body.style.overflow = "hidden";
   nextStep();
+}
+function sesLeft() {
+  if (!SES || !SES.items) return 0;
+  return SES.items.reduce((a, it) => a + (it.done ? 0 : it.stages.length - it.i), 0) + (SES.mode === "lesson" && !SES.matched && SES.words.length >= 4 ? 1 : 0);
+}
+function recentIds(k = 2) { return SES.hist.slice(-k).flat(); }
+function pickNext() {
+  const t = SES.step, recent = recentIds();
+  const open = SES.items.filter(it => !it.done), isIntro = it => it.stages[it.i] === "intro";
+  const qs = open.filter(it => !isIntro(it));
+  // 1) a question whose waiting time is over (oldest first; warm-up/review before new words on ties)
+  const ready = qs.filter(it => it.ready <= t && !recent.includes(it.w.id)).sort((a, b) => a.ready - b.ready || (a.kind === "rev" ? -1 : 1));
+  if (ready.length) return ready[0];
+  // 2) introduce the next new word — small batches, never two intros in a row when a review word can go between
+  const intros = open.filter(isIntro), active = qs.filter(it => it.kind === "learn").length;
+  const pool = (SES.pool || []).filter(w => !recent.includes(w.id));
+  if (intros.length && active < BATCH && !(SES.lastT === "intro" && pool.length)) return intros[0];
+  // 3) a filler: an older word between two tasks about the same new word
+  if (pool.length) { const w = pool[0]; SES.pool.splice(SES.pool.indexOf(w), 1); return addItem(revItem(w, "fill")); }
+  if (intros.length) return intros[0];
+  // 4) words already finished in this session / spare known words get one more quick question
+  const spare = SES.items.filter(it => it.done && it.kind === "learn" && !SES.extraUsed.has(it.w.id) && !recent.includes(it.w.id)).map(it => it.w)
+    .concat((SES.spare || []).filter(w => !SES.extraUsed.has(w.id) && !recent.includes(w.id)));
+  if (qs.length && spare.length) { const w = spare[0]; SES.extraUsed.add(w.id); const it = revItem(w, "fill"); it.stages = [Math.random() < 0.5 ? "l2r" : "r2l"]; return addItem(it); }
+  // 5) nothing else left: the soonest question, preferably not about the word just shown
+  const later = qs.filter(it => !recent.includes(it.w.id)).sort((a, b) => a.ready - b.ready);
+  return later[0] || qs.sort((a, b) => a.ready - b.ready)[0] || null;
+}
+function addItem(it) { it.ready = SES.step; SES.items.push(it); return it; }
+function nextStep() {
+  if (!SES) return;
+  SES.step++;
+  let it = pickNext();
+  if (!it && SES.mode === "lesson" && !SES.matched) {
+    SES.matched = true;
+    const recent = recentIds(), mw = sample(SES.words.filter(w => !recent.includes(w.id)), 5);
+    if (mw.length >= 3) it = { match: true, ws: mw };
+  }
+  if (!it) { SES.step--; return finish(); }
+  SES.item = it;
+  const t = it.match ? "match" : it.stages[it.i];
+  SES.cur = it.match ? { t, ws: it.ws } : { t, w: it.w, retry: !!it.retry, tag: it.kind === "rev" ? it.tag : "learn" };
+  const ids = it.match ? it.ws.map(w => w.id) : [it.w.id];
+  SES.hist.push(ids); SES.log.push({ step: SES.step, t, ids, tag: SES.cur.tag || "match", retry: !!it.retry });
+  SES.lastT = t;
+  ({ intro: showIntro, l2r: showChoice, r2l: showChoice, gender: showGender, type: showType, match: showMatch })[t](SES.cur);
+}
+function qLabel(st, dflt) {
+  if (st.retry) return "Ещё раз";
+  if (st.tag === "warm") return "Разминка · повторение";
+  if (st.tag === "rev" || st.tag === "fill") return "Повторение";
+  return dflt;
+}
+// a wrong pair in «match»: the word comes back 3 tasks later as a normal question
+function requeueWord(w) { const it = revItem(w, "fill"); it.stages = ["l2r"]; it.retry = true; it.ready = SES.step + 3; SES.items.push(it); }
+function onAnswer(ok, w) {
+  const it = SES.item, r = rec(w);
+  if (ok) r.ok++; else r.bad++;
+  // the spaced-repetition box moves once per session, on the first answer about a word known before the session
+  if (SES.known.has(w.id) && !SES.srsDone.has(w.id)) { srsAnswer(w, !!ok); SES.srsDone.add(w.id); }
+  else if (!ok && SES.known.has(w.id)) { r.s = 1; r.due = Math.min(r.due, dueIn(1)); }
+  if (ok) {
+    it.i++; it.retry = false; it.ready = SES.step + GAP_OK;
+    if (it.i >= it.stages.length) { it.done = true; if (it.kind === "learn" && it.fresh) srsLearned(w); }
+  } else {
+    it.misses++; it.retry = true; it.ready = SES.step + 3 + Math.floor(Math.random() * 3); // back in 3–5 tasks
+    SES.mistakes++; SES.wrongWords.add(w);
+  }
+  save();
 }
 function closeSession(force) {
   if (!force && SES && SES.done > 0 && !SES.finished && !confirm("Выйти из урока? Прогресс этого урока не сохранится, но изученные слова останутся.")) return;
@@ -703,7 +819,7 @@ function closeSession(force) {
 }
 function sessionFrame(body, foot) {
   const total = SES.done + SES.queue.length;
-  const pct = SES.finished ? 100 : (SES.done / Math.max(1, total)) * 100;
+  const pct = SES.finished ? 100 : Math.max(SES.lastPct || 0, Math.min(97, (SES.done / Math.max(1, total)) * 100));
   $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button><div class="s-prog"><i style="width:${SES.lastPct || 0}%"></i></div></div>
     <div class="s-body">${body}</div>${foot}`;
   requestAnimationFrame(() => { const i = $("#session .s-prog i"); if (i) i.style.width = pct + "%"; SES.lastPct = pct; });
@@ -712,29 +828,11 @@ function sessionFrame(body, foot) {
 function footCheck(label = "Проверить", disabled = true, skip = true) {
   return `<div class="s-foot" id="foot"><div class="in"><div class="row2">${skip ? `<button class="btn ghost" id="skipBtn">Не знаю</button>` : ""}<button class="btn" id="checkBtn" ${disabled ? "disabled" : ""}>${label}</button></div></div></div>`;
 }
-function nextStep() {
-  if (!SES) return;
-  if (!SES.queue.length) return finish();
-  SES.cur = SES.queue.shift();
-  const st = SES.cur;
-  ({ intro: showIntro, l2r: showChoice, r2l: showChoice, gender: showGender, type: showType, match: showMatch })[st.t](st);
-}
 function feedback(ok, answerHTML, w, extra = "") {
   const st = SES.cur;
   SES.answered++;
   if (ok) { SES.done++; if (!st.retry) SES.firstTry++; }
-  else {
-    SES.mistakes++; if (w) SES.wrongWords.add(w);
-    // no lives: the same task comes back a few steps later
-    const pos = Math.min(SES.queue.length, 2 + Math.floor(Math.random() * 2));
-    SES.queue.splice(pos, 0, Object.assign({}, st, { retry: true }));
-  }
-  if (w) {
-    // a word's level changes once per session: the first answer counts
-    if (!SES.seenOk.has(w.id)) { mark(w, ok); SES.seenOk.add(w.id); save(); }
-    else if (!ok) { const r = S.words[w.id]; if (r) { r.due = Date.now(); save(); } }
-    if (S.settings.autoplay) speak(w);
-  }
+  if (w) { onAnswer(ok, w); if (S.settings.autoplay) speak(w); }
   const foot = $("#foot");
   foot.className = "s-foot " + (ok ? "ok" : "bad");
   foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${ok ? IC.check : IC.x}</div><div><b>${ok === "typo" ? "Почти верно" : ok ? sample(["Верно", "Отлично", "Правильно"], 1)[0] : "Неверно"}</b>
@@ -751,16 +849,16 @@ function showIntro(st) {
     <div class="ru">${esc(w.rus)}</div>${w.note ? `<div class="nt">${esc(w.note)}</div>` : ""}${speakBtn(w, "speak")}</div>`,
     `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="contBtn">Понятно</button></div></div>`);
   if (S.settings.autoplay) setTimeout(() => speak(w), 250);
-  $("#contBtn").onclick = () => { SES.done++; nextStep(); };
+  $("#contBtn").onclick = () => { const it = SES.item; it.i++; it.ready = SES.step + GAP_INTRO; SES.introduced.add(w.id); SES.done++; nextStep(); };
   $("#contBtn").focus({ preventScroll: true });
 }
 function showChoice(st) {
   const w = st.w, l2r = st.t === "l2r";
-  const opts = shuffle([w, ...distractors(w, 3, SES.words)]);
+  const opts = shuffle([w, ...distractors(w, 3, l2r ? "rus" : "lat")]);
   const title = l2r ? "Выберите перевод" : "Как это по-латыни?";
   const prompt = l2r ? `<div class="prompt"><div>${latHTML(w, true)}</div>${speakBtn(w, "speak")}</div>`
     : `<div class="prompt"><span class="big ru">${esc(w.rus)}</span></div>${w.note && w.kind !== "phrase" && rusTokens(w.rus).length && WORDS.some(x => x !== w && clash(x, w) && x.head !== w.head) ? `<div class="hint" style="margin:-12px 0 16px">${esc(w.note)}</div>` : ""}`;
-  sessionFrame(`<div class="q-kind">${SES.cur.retry ? "Ещё раз" : (SES.mode === "review" ? "Повторение" : "Задание")}</div><h2 class="q-title">${title}</h2>${prompt}
+  sessionFrame(`<div class="q-kind">${qLabel(st, l2r ? "Узнайте слово" : "Вспомните латынь")}</div><h2 class="q-title">${title}</h2>${prompt}
     <div class="opts ${l2r ? "two" : "two"}" id="opts">${opts.map((o, i) => `<button class="opt ${l2r ? "" : "lat-opt"}" data-i="${i}"><span class="k">${i + 1}</span><span>${l2r ? esc(o.rus) : esc(o.lat)}</span></button>`).join("")}</div>`,
     `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">Выберите вариант${matchMedia("(hover:hover)").matches ? " · клавиши 1–4" : ""}</div></div></div>`);
   if (l2r && S.settings.autoplay && !st.retry) setTimeout(() => speak(w), 200);
@@ -775,7 +873,7 @@ function showChoice(st) {
 }
 function showGender(st) {
   const w = st.w;
-  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Грамматика"}</div><h2 class="q-title">Какого рода это слово?</h2>
+  sessionFrame(`<div class="q-kind">${qLabel(st, "Грамматика")}</div><h2 class="q-title">Какого рода это слово?</h2>
     <div class="prompt"><div><span class="lat big">${esc(w.head)}</span><span class="gram">, ${esc(w.gram.replace(/\s[mfn]$/, ""))}</span></div>${speakBtn(w, "speak")}</div>
     <div class="opts" id="opts">${["m", "f", "n"].map((g, i) => `<button class="opt" data-g="${g}"><span class="k">${i + 1}</span><span>${GENDER[g]} <span class="muted">(${g})</span></span></button>`).join("")}</div>`,
     `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">m — masculinum, f — femininum, n — neutrum</div></div></div>`);
@@ -791,7 +889,7 @@ function showGender(st) {
 function showType(st) {
   const w = st.w;
   const hint = w.kind === "adj" ? "Форма мужского рода, например: longus" : w.kind === "noun" ? "Только именительный падеж, без окончаний род. п." : "Всё сочетание целиком";
-  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Письмо"}</div><h2 class="q-title">Напишите по-латыни</h2>
+  sessionFrame(`<div class="q-kind">${qLabel(st, "Письмо")}</div><h2 class="q-title">Напишите по-латыни</h2>
     <div class="prompt"><span class="big ru">${esc(w.rus)}</span></div>${w.note && /подъязычн|ямка|шов|большой|малый|полость/.test(w.rus) ? `<div class="hint" style="margin:-12px 0 14px">Подсказка: ${esc(w.note.replace(new RegExp(w.head, "i"), "…"))}</div>` : ""}
     <div class="type-wrap"><input class="type-in" id="tin" type="text" lang="la" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="латинское слово">
     <div class="hint">${hint}</div></div>`, footCheck());
@@ -813,7 +911,7 @@ function showType(st) {
 function showMatch(st) {
   const ws_ = st.ws;
   const left = shuffle(ws_), right = shuffle(ws_);
-  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Пары"}</div><h2 class="q-title">Соедините пары</h2>
+  sessionFrame(`<div class="q-kind">Пары · закрепление</div><h2 class="q-title">Соедините пары</h2>
     <div class="match" id="mt"><div class="col">${left.map(w => `<button class="opt lat-opt" data-id="${esc(w.id)}" data-side="l">${esc(w.head)}</button>`).join("")}</div>
     <div class="col">${right.map(w => `<button class="opt" data-id="${esc(w.id)}" data-side="r">${esc(w.rus)}</button>`).join("")}</div></div>`,
     `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">Нажмите слово слева, затем перевод справа</div></div></div>`);
@@ -832,14 +930,15 @@ function showMatch(st) {
         left_n--;
       } else {
         errs++; SES.mistakes++;
-        const ww = byId[a.dataset.id]; SES.wrongWords.add(ww);
+        const ww = byId[a.dataset.id];
         // the confused word comes back later as a normal question
-        SES.queue.splice(Math.min(SES.queue.length, 2), 0, { t: "l2r", w: ww, retry: true });
+        if (!SES.wrongWords.has(ww) || !SES.items.some(it => !it.done && it.w === ww)) requeueWord(ww);
+        SES.wrongWords.add(ww);
         [a, c].forEach(x => { x.classList.remove("sel"); x.classList.add("wrong", "shake"); setTimeout(() => x.classList.remove("wrong", "shake"), 400); });
       }
       sel = { l: null, r: null };
       if (!left_n) setTimeout(() => {
-        SES.answered++; SES.done++; if (!errs) SES.firstTry++;
+        SES.answered++; SES.done++; if (!errs) SES.firstTry++; SES.item.done = true;
         const foot = $("#foot"); foot.className = "s-foot ok";
         foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${IC.check}</div><div><b>${errs ? "Все пары найдены" : "Отлично"}</b><div class="ans">${errs ? "Перепутанные слова ещё встретятся" : "Без ошибок"}</div></div></div><button class="btn" id="contBtn">Дальше</button></div>`;
         $("#contBtn").onclick = nextStep; $("#contBtn").focus({ preventScroll: true });
@@ -855,7 +954,7 @@ function finish() {
   if (SES.mode === "lesson") {
     const k = lessonKey(SES.ui, SES.li), prev = S.lessons[k];
     S.lessons[k] = { n: (prev ? prev.n : 0) + 1, at: Date.now() };
-    SES.words.forEach(w => { if (!S.words[w.id]) mark(w, true); });
+    SES.words.forEach(w => { if (!ws(w).seen) srsLearned(w); });
     save();
   }
   const acc = SES.answered ? Math.round(SES.firstTry / SES.answered * 100) : 100;
@@ -873,6 +972,7 @@ function finish() {
       <div class="card stat"><b>${acc}%</b><span>точность</span></div>
       <div class="card stat"><b>${tm}</b><span>время</span></div>
     </div>
+    <div class="muted" style="max-width:520px">${isLesson ? "Новые слова вернутся на повторение завтра, потом через 3, 7, 14 и 30 дней." : (dueWords().length ? `Ещё на повторение: ${dueWords().length} ${plural(dueWords().length, "слово", "слова", "слов")}` : "На сегодня всё повторено.")}</div>
     ${firstToday ? `<div class="streak-note">${IC.flame} Серия: ${st} ${plural(st, "день", "дня", "дней")}</div>` : `<div class="muted">Сегодня: ${todayXp()} / ${S.settings.goal} XP</div>`}
     ${wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:4px 0"><div class="hint" style="padding:10px 14px 4px">Слова с ошибками — попадут в повторение</div>${wrong.map(w => `<div class="row"><div class="t"><div>${latHTML(w)}</div><div class="ru">${esc(w.rus)}</div></div>${speakBtn(w)}</div>`).join("")}</div>` : ""}
     </div>`,
@@ -901,8 +1001,8 @@ function startFlash(list) {
     $("#fc").onclick = reveal;
     if (!shown) $("#fShow").onclick = reveal;
     else {
-      $("#fYes").onclick = () => { mark(w, true); save(); known++; i++; shown = false; draw(); };
-      $("#fNo").onclick = () => { mark(w, false); save(); i++; shown = false; draw(); };
+      $("#fYes").onclick = () => { rec(w).ok++; if (ws(w).seen) srsAnswer(w, true); else srsLearned(w); save(); known++; i++; shown = false; draw(); };
+      $("#fNo").onclick = () => { rec(w).bad++; if (ws(w).seen) srsAnswer(w, false); save(); i++; shown = false; draw(); };
     }
   };
   draw();
