@@ -1,0 +1,936 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#2f9e5b">
+<meta name="description" content="Латинская анатомическая терминология — уроки, карточки, словарь. Работает офлайн.">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Латынь">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<title>Латинская анатомия — минимум</title>
+<style>
+:root{
+  --bg:#f6f6f3;--surface:#ffffff;--surface2:#f0f0ec;--line:#e4e4df;--text:#1f2120;--muted:#6f726f;
+  --accent:#2f9e5b;--accent-ink:#ffffff;--accent-soft:#e3f3e9;--accent-dark:#23804a;
+  --bad:#c8493f;--bad-soft:#fbe9e7;--warn:#d98a1c;--lat:#1d4f86;
+  --radius:16px;--shadow:0 1px 2px rgba(0,0,0,.04),0 4px 16px rgba(0,0,0,.04);
+  --serif:"Iowan Old Style","Palatino Linotype",Palatino,"Book Antiqua",Georgia,"Times New Roman",serif;
+  --sans:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --safe-b:env(safe-area-inset-bottom,0px);--safe-t:env(safe-area-inset-top,0px);--safe-l:env(safe-area-inset-left,0px);--safe-r:env(safe-area-inset-right,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){
+  --bg:#121413;--surface:#1b1e1c;--surface2:#232725;--line:#2e3330;--text:#ebecea;--muted:#9aa09c;
+  --accent:#3bb06a;--accent-ink:#0d1a12;--accent-soft:#1c3326;--accent-dark:#2e9257;--bad:#e2685e;--bad-soft:#3a2220;--lat:#9cc3ef;
+  --shadow:none;}}
+:root[data-theme=dark]{
+  --bg:#121413;--surface:#1b1e1c;--surface2:#232725;--line:#2e3330;--text:#ebecea;--muted:#9aa09c;
+  --accent:#3bb06a;--accent-ink:#0d1a12;--accent-soft:#1c3326;--accent-dark:#2e9257;--bad:#e2685e;--bad-soft:#3a2220;--lat:#9cc3ef;
+  --shadow:none;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--text);font-family:var(--sans);font-size:16px;line-height:1.4;-webkit-text-size-adjust:100%}
+body{min-height:100vh;min-height:100dvh}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer;padding:0}
+input,select{font:inherit;color:inherit}
+.hidden{display:none!important}
+.lat{font-family:var(--serif);color:var(--lat)}
+.muted{color:var(--muted)}
+svg.i{width:1.15em;height:1.15em;vertical-align:-.2em;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- app shell ---------- */
+.app{display:flex;flex-direction:column;min-height:100vh;min-height:100dvh}
+.topbar{position:sticky;top:0;z-index:5;background:var(--bg);
+  padding:calc(10px + var(--safe-t)) 16px 10px;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--line)}
+.brand{font-weight:700;font-size:1.05rem;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.brand span{color:var(--muted);font-weight:500}
+.pill{display:inline-flex;align-items:center;gap:6px;font-weight:700;font-size:.95rem;padding:6px 10px;border-radius:999px;background:var(--surface);border:1px solid var(--line)}
+.pill.streak{color:var(--warn)} .pill.streak.off{color:var(--muted)}
+.pill.xp{color:var(--accent)}
+.content{flex:1;width:100%;max-width:1180px;margin:0 auto;padding:16px 16px calc(84px + var(--safe-b))}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:6;display:flex;background:var(--surface);border-top:1px solid var(--line);padding-bottom:var(--safe-b)}
+.tabbar button{flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;padding:9px 4px 8px;font-size:.75rem;color:var(--muted);font-weight:600}
+.tabbar button svg{width:24px;height:24px}
+.tabbar button.on{color:var(--accent)}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);margin:22px 4px 10px;font-weight:700}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;min-height:52px;padding:0 20px;border-radius:14px;font-weight:700;font-size:1rem;
+  background:var(--accent);color:var(--accent-ink);box-shadow:0 3px 0 var(--accent-dark);transition:transform .06s,box-shadow .06s;width:100%}
+.btn:active{transform:translateY(2px);box-shadow:0 1px 0 var(--accent-dark)}
+.btn.ghost{background:var(--surface);color:var(--text);border:1px solid var(--line);box-shadow:0 3px 0 var(--line)}
+.btn.ghost:active{box-shadow:0 1px 0 var(--line)}
+.btn.danger{background:var(--bad);color:#fff;box-shadow:0 3px 0 color-mix(in srgb,var(--bad) 70%,#000)}
+.btn[disabled]{opacity:.45;pointer-events:none}
+.btn.sm{min-height:40px;font-size:.9rem;padding:0 14px;width:auto}
+
+/* ---------- home ---------- */
+.home{display:grid;gap:16px}
+.hero{padding:18px;display:grid;gap:14px}
+.hero .goal{display:flex;align-items:center;gap:14px}
+.ring{width:56px;height:56px;flex:none}
+.ring circle{fill:none;stroke-width:6}
+.ring .bgc{stroke:var(--surface2)} .ring .fgc{stroke:var(--accent);stroke-linecap:round;transition:stroke-dashoffset .4s}
+.goal b{display:block;font-size:1.05rem}
+.next-title{font-size:.85rem;color:var(--muted)}
+.hero-actions{display:grid;gap:10px}
+.storage-warn{padding:12px 14px;font-size:.88rem;background:var(--bad-soft);border-color:transparent;color:var(--text)}
+.units{display:grid;gap:12px}
+.unit{padding:16px}
+.unit-head{display:flex;align-items:baseline;gap:10px}
+.unit-head h3{margin:0;font-size:1.05rem;flex:1}
+.unit-head .cnt{font-size:.85rem;color:var(--muted);white-space:nowrap}
+.bar{height:6px;border-radius:3px;background:var(--surface2);overflow:hidden;margin:10px 0 12px}
+.bar i{display:block;height:100%;background:var(--accent);border-radius:3px;transition:width .3s}
+.lessons{display:flex;flex-wrap:wrap;gap:8px}
+.lesson-dot{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-weight:700;font-size:.95rem;border:2px solid var(--line);background:var(--surface);color:var(--muted)}
+.lesson-dot{flex:none;padding:0}.lesson-dot svg{width:20px;height:20px}
+.card.search{min-width:0}.card.search input{min-width:0;width:100%}
+.lesson-dot.passed{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.lesson-dot.next{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.lesson-dot:active{transform:scale(.95)}
+
+/* ---------- dictionary ---------- */
+.dict-tools{display:grid;gap:10px;position:sticky;top:calc(57px + var(--safe-t));z-index:3;background:var(--bg);padding:4px 0 10px}
+.search{display:flex;align-items:center;gap:8px;padding:0 14px;height:48px}
+.search input{flex:1;border:0;background:none;outline:none;font-size:1rem;min-width:0}
+.chips{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}
+.chips::-webkit-scrollbar{display:none}
+.chip{flex:none;padding:8px 12px;border-radius:999px;border:1px solid var(--line);background:var(--surface);font-size:.85rem;font-weight:600;color:var(--muted)}
+.chip.on{background:var(--text);color:var(--bg);border-color:var(--text)}
+.dict-list{display:grid;gap:0;overflow:hidden}
+.row{display:flex;align-items:center;gap:12px;padding:12px 14px;border-top:1px solid var(--line)}
+.row:first-child{border-top:0}
+.row .t{flex:1;min-width:0}
+.row .t .lat{font-size:1.08rem}
+.row .t .ru{font-size:.92rem;color:var(--muted)}
+.row .t .nt{font-size:.8rem;color:var(--muted);font-style:italic}
+.dots{display:flex;gap:3px;flex:none}
+.dots i{width:6px;height:6px;border-radius:50%;background:var(--surface2)}
+.dots i.f{background:var(--accent)}
+.icon-btn{width:40px;height:40px;border-radius:12px;display:grid;place-items:center;color:var(--muted);flex:none}
+.icon-btn:active{background:var(--surface2)}
+.empty{padding:28px;text-align:center;color:var(--muted)}
+
+/* ---------- stats ---------- */
+.stat-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.stat{padding:14px 16px}
+.stat b{display:block;font-size:1.6rem;line-height:1.1}
+.stat span{font-size:.85rem;color:var(--muted)}
+.week{display:flex;align-items:flex-end;gap:8px;height:110px;padding:16px 16px 10px}
+.week div{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%;justify-content:flex-end;font-size:.75rem;color:var(--muted)}
+.week div i{width:100%;max-width:34px;border-radius:6px 6px 3px 3px;background:var(--surface2);min-height:4px}
+.week div i.f{background:var(--accent)}
+.settings{overflow:hidden}
+.set{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--line);min-height:58px}
+.set:first-child{border-top:0}
+.set label,.set .lbl{flex:1}
+.set small{display:block;color:var(--muted);font-size:.8rem}
+.set select{background:var(--surface2);border:1px solid var(--line);border-radius:10px;padding:8px 10px;max-width:52%}
+.switch{position:relative;width:50px;height:30px;flex:none}
+.switch input{opacity:0;width:0;height:0;position:absolute}
+.switch span{position:absolute;inset:0;border-radius:999px;background:var(--line);transition:.2s}
+.switch span:after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:.2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch input:checked+span{background:var(--accent)}
+.switch input:checked+span:after{transform:translateX(20px)}
+.set-actions{display:grid;gap:10px;padding:14px 16px;border-top:1px solid var(--line)}
+
+/* ---------- session (lesson) ---------- */
+.session{position:fixed;inset:0;z-index:20;background:var(--bg);display:flex;flex-direction:column}
+.s-top{display:flex;align-items:center;gap:14px;padding:calc(12px + var(--safe-t)) 16px 8px;max-width:820px;width:100%;margin:0 auto}
+.s-prog{flex:1;height:14px;border-radius:7px;background:var(--surface2);overflow:hidden}
+.s-prog i{display:block;height:100%;width:0;background:var(--accent);border-radius:7px;transition:width .35s ease}
+.s-body{flex:1;overflow-y:auto;display:flex;flex-direction:column;width:100%;max-width:820px;margin:0 auto;padding:12px 20px 20px}
+.q-kind{font-size:.85rem;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.05em;margin:8px 0 6px}
+.q-title{font-size:1.35rem;font-weight:700;margin:0 0 18px}
+.prompt{display:flex;align-items:center;gap:12px;margin:4px 0 22px;flex-wrap:wrap}
+.prompt .big{font-size:2rem;line-height:1.2;word-break:break-word}
+.prompt .big.ru{font-family:var(--sans);color:var(--text);font-weight:650}
+.prompt .gram{font-size:1rem;color:var(--muted);font-family:var(--serif)}
+.speak{width:48px;height:48px;border-radius:14px;background:var(--accent-soft);color:var(--accent);display:grid;place-items:center;flex:none}
+.speak svg{width:24px;height:24px}
+.speak:active{transform:scale(.95)}
+.opts{display:grid;gap:10px;grid-template-columns:1fr}
+.opt{display:flex;align-items:center;gap:12px;text-align:left;min-height:58px;padding:12px 16px;border-radius:14px;background:var(--surface);border:2px solid var(--line);box-shadow:0 3px 0 var(--line);font-size:1.05rem;transition:transform .06s}
+.opt:active{transform:translateY(2px);box-shadow:0 1px 0 var(--line)}
+.opt .k{flex:none;width:26px;height:26px;border-radius:8px;border:1.5px solid var(--line);display:grid;place-items:center;font-size:.78rem;color:var(--muted);font-weight:700}
+.opt.lat-opt{font-family:var(--serif);color:var(--lat);font-size:1.12rem}
+.opt.right{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 3px 0 var(--accent)}
+.opt.wrong{border-color:var(--bad);background:var(--bad-soft);box-shadow:0 3px 0 var(--bad)}
+.opt.dim{opacity:.5}
+.opts.locked .opt{pointer-events:none}
+.intro{padding:26px 22px;text-align:center;display:grid;gap:10px;justify-items:center;margin-top:8px}
+.intro .badge{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:5px 10px;border-radius:999px}
+.intro .lat{font-size:2.3rem;line-height:1.15}
+.intro .gram{font-family:var(--serif);color:var(--muted);font-size:1.1rem}
+.intro .ru{font-size:1.3rem;font-weight:650}
+.intro .nt{font-size:.92rem;color:var(--muted)}
+.type-wrap{display:grid;gap:10px}
+.type-in{width:100%;height:60px;border-radius:14px;border:2px solid var(--line);background:var(--surface);padding:0 16px;font-size:1.3rem;font-family:var(--serif);color:var(--lat);outline:none}
+.type-in:focus{border-color:var(--accent)}
+.type-in.right{border-color:var(--accent);background:var(--accent-soft)}
+.type-in.wrong{border-color:var(--bad);background:var(--bad-soft)}
+.hint{font-size:.88rem;color:var(--muted)}
+.match{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.match .col{display:grid;gap:10px;align-content:start}
+.match .opt{justify-content:center;text-align:center;min-height:56px;padding:10px}
+.match .opt.sel{border-color:var(--lat);box-shadow:0 3px 0 var(--lat)}
+.match .opt.gone{opacity:.28;pointer-events:none;box-shadow:none}
+.shake{animation:shake .3s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.s-foot{border-top:1px solid var(--line);background:var(--surface);padding:14px 20px calc(14px + var(--safe-b))}
+.s-foot .in{max-width:820px;margin:0 auto;display:flex;flex-direction:column;gap:12px}
+.s-foot.ok{background:var(--accent-soft);border-color:transparent}
+.s-foot.bad{background:var(--bad-soft);border-color:transparent}
+.fb{display:flex;gap:12px;align-items:flex-start}
+.fb .ic{width:36px;height:36px;border-radius:50%;display:grid;place-items:center;flex:none;color:#fff}
+.s-foot.ok .fb .ic{background:var(--accent)} .s-foot.bad .fb .ic{background:var(--bad)}
+.fb b{display:block;font-size:1.1rem}
+.s-foot.ok .fb b{color:var(--accent-dark)} .s-foot.bad .fb b{color:var(--bad)}
+.fb .ans{font-size:1rem;margin-top:2px}
+.fb .ans .lat{font-size:1.08rem}
+.s-foot .row2{display:flex;gap:10px}
+.s-foot .row2 .btn.ghost{flex:0 0 auto;width:auto}
+.btn.bad{background:var(--bad);color:#fff;box-shadow:0 3px 0 color-mix(in srgb,var(--bad) 70%,#000)}
+/* flashcards */
+.flash{flex:1;display:flex;flex-direction:column;justify-content:center;gap:16px}
+.fcard{min-height:260px;padding:28px 22px;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:10px;cursor:pointer;user-select:none}
+.fcard .lat{font-size:2.1rem;line-height:1.2}
+.fcard .gram{font-family:var(--serif);color:var(--muted)}
+.fcard .ru{font-size:1.35rem;font-weight:650}
+.fcard .tap{font-size:.85rem;color:var(--muted)}
+/* done screen */
+.done{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center;gap:18px;padding:20px 0}
+.done .seal{width:96px;height:96px;border-radius:50%;background:var(--accent);color:var(--accent-ink);display:grid;place-items:center;animation:pop .45s cubic-bezier(.2,1.6,.4,1)}
+.done .seal svg{width:52px;height:52px;stroke-width:3}
+@keyframes pop{from{transform:scale(.4);opacity:0}to{transform:none;opacity:1}}
+.done h2{margin:0;font-size:1.8rem}
+.done p{margin:0;color:var(--muted)}
+.done-stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;width:100%;max-width:520px}
+.done-stats .stat{text-align:center;padding:14px 8px}
+.done-stats .stat b{font-size:1.45rem}
+.streak-note{font-weight:700;color:var(--warn)}
+.toast{position:fixed;left:50%;bottom:calc(90px + var(--safe-b));transform:translateX(-50%);background:var(--text);color:var(--bg);padding:10px 16px;border-radius:12px;font-size:.92rem;z-index:50;opacity:0;transition:opacity .2s;pointer-events:none;max-width:90vw;text-align:center}
+.toast.on{opacity:1}
+
+/* ---------- tablet & wide ---------- */
+@media (min-width:600px){
+  .opts.two{grid-template-columns:1fr 1fr}
+  .prompt .big{font-size:2.4rem}
+  .intro .lat{font-size:2.8rem}
+  .stat-grid{grid-template-columns:repeat(4,1fr)}
+}
+@media (min-width:768px){
+  html,body{font-size:17px}
+  .content{padding:24px 28px calc(28px + var(--safe-b))}
+  .tabbar{position:sticky;top:0;bottom:auto;left:auto;right:auto;order:-1;background:none;border:0;padding:0;gap:4px;width:auto}
+  .tabbar button{flex-direction:row;gap:8px;font-size:.92rem;padding:8px 14px;border-radius:10px}
+  .tabbar button svg{width:20px;height:20px}
+  .tabbar button.on{background:var(--accent-soft)}
+  .topbar{padding-left:28px;padding-right:28px}
+  .tabslot{display:flex}
+  .units{grid-template-columns:1fr 1fr}
+  .home{grid-template-columns:minmax(280px,340px) 1fr;align-items:start;gap:24px}
+  .home .side{position:sticky;top:calc(84px + var(--safe-t));display:grid;gap:16px}
+  .home .side h2.sec:first-child{margin-top:0}
+  .home .main h2.sec:first-child{margin-top:0}
+  .dict-tools{top:calc(65px + var(--safe-t))}
+  .dict-list{grid-template-columns:1fr 1fr}
+  .dict-list .row:nth-child(2){border-top:0}
+  .dict-list .row:nth-child(odd){border-right:1px solid var(--line)}
+  .s-body{padding:28px 32px}
+  .q-title{font-size:1.6rem}
+  .opt{min-height:64px;font-size:1.12rem}
+  .toast{bottom:32px}
+  .stats-layout{display:grid;grid-template-columns:1fr 1fr;gap:20px;align-items:start}
+  .stats-layout h2.sec:first-child{margin-top:0}
+}
+@media (min-width:768px) and (max-width:899px) and (orientation:portrait){
+  .home{grid-template-columns:1fr}
+  .home .side{position:static;grid-template-columns:1fr 1fr;align-items:start}
+  .home .side h2.sec{grid-column:1/-1}
+}
+@media (min-width:1100px){ .units{grid-template-columns:1fr 1fr} }
+@media (max-height:520px) and (orientation:landscape){
+  .prompt{margin-bottom:12px} .q-title{margin-bottom:10px} .opts.two,.opts{grid-template-columns:1fr 1fr} .opt{min-height:50px}
+  .intro{padding:14px} .done .seal{width:64px;height:64px}
+}
+@media (min-width:768px) and (max-width:900px){ .brand span{display:none} }
+@media (max-width:400px){ #flashBtn span{display:none} }
+@media (max-width:370px){ .brand span{display:none} .prompt .big{font-size:1.7rem} .lesson-dot{width:40px;height:40px} }
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+/* ---------- PWA: left/right safe areas (notch in landscape) ---------- */
+.app{padding-left:var(--safe-l);padding-right:var(--safe-r)}
+.tabbar,.session{padding-left:var(--safe-l);padding-right:var(--safe-r)}
+.toast{max-width:calc(90vw - var(--safe-l) - var(--safe-r))}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header class="topbar">
+    <div class="brand">Латинская анатомия <span>· минимум</span></div>
+    <nav class="tabbar" id="tabbar">
+      <button data-tab="learn" class="on"><svg class="i" viewBox="0 0 24 24"><path d="M3 10l9-6 9 6-9 6-9-6z"/><path d="M7 12.5V17c3 2 7 2 10 0v-4.5"/></svg>Уроки</button>
+      <button data-tab="dict"><svg class="i" viewBox="0 0 24 24"><path d="M4 5a2 2 0 012-2h13v16H6a2 2 0 00-2 2V5z"/><path d="M4 19a2 2 0 012-2h13"/></svg>Словарь</button>
+      <button data-tab="stats"><svg class="i" viewBox="0 0 24 24"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Прогресс</button>
+    </nav>
+    <span class="pill streak off" id="pillStreak" title="Серия дней"><svg class="i" viewBox="0 0 24 24"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 01-10 0c0-2.2 1-3.6 2.2-4.7.2 1.6 1 2.7 2 3.2C11 9 11 6 12 3z"/></svg><span id="streakN">0</span></span>
+    <span class="pill xp" id="pillXp" title="Опыт (XP)"><svg class="i" viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg><span id="xpN">0</span></span>
+  </header>
+  <main class="content">
+    <section id="tab-learn"></section>
+    <section id="tab-dict" class="hidden"></section>
+    <section id="tab-stats" class="hidden"></section>
+  </main>
+</div>
+<div class="session hidden" id="session"></div>
+<div class="toast" id="toast"></div>
+<input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<script>
+"use strict";
+const UNITS = [{"id": "u1", "title": "I склонение", "words": [["ala, ae f", "крыло"], ["aorta, ae f", "аорта"], ["apertura, ae f", "апертура, отверстие"], ["arteria, ae f", "артерия"], ["bucca, ae f", "щека"], ["bursa, ae f", "сумка"], ["clavicula, ae f", "ключица"], ["columna, ae f", "столб"], ["commissura, ae f", "спайка"], ["concha, ae f", "раковина"], ["corona, ae f", "коронка, венец"], ["costa, ae f", "ребро"], ["crista, ae f", "гребень"], ["curvatura, ae f", "кривизна"], ["fascia, ae f", "фасция"], ["fibra, ae f", "волокно"], ["fibula, ae f", "малоберцовая кость"], ["fissura, ae f", "щель"], ["flexura, ae f", "изгиб"], ["fossa, ae f", "ямка", "fossa mandibularis — нижнечелюстная ямка"], ["fovea, ae f", "ямка", "мелкая ямка: fovea centralis"], ["gingiva, ae f", "десна"], ["glandula, ae f", "железа"], ["incisura, ae f", "вырезка"], ["lamina, ae f", "пластинка"], ["linea, ae f", "линия"], ["lingua, ae f", "язык"], ["mandibula, ae f", "нижняя челюсть"], ["maxilla, ae f", "верхняя челюсть"], ["medulla, ae f", "мозговое вещество; мозг"], ["membrana, ae f", "перепонка"], ["nucha, ae f", "выя"], ["orbita, ae f", "глазница"], ["palma, ae f", "ладонь"], ["palpebra, ae f", "веко"], ["papilla, ae f", "сосочек"], ["patella, ae f", "надколенник"], ["planta, ae f", "подошва"], ["plica, ae f", "складка"], ["protuberantia, ae f", "выступ"], ["pulpa, ae f", "пульпа, мяготь"], ["raphe, es f", "шов", "шов мягких тканей: raphe palati"], ["scapula, ae f", "лопатка"], ["spina, ae f", "ость"], ["squama, ae f", "чешуя"], ["sutura, ae f", "шов", "шов между костями: sutura sagittalis"], ["tibia, ae f", "большеберцовая кость"], ["tonsilla, ae f", "миндалина"], ["trachea, ae f", "трахея"], ["trochlea, ae f", "блок"], ["tuba, ae f", "труба"], ["tunica, ae f", "оболочка"], ["ulna, ae f", "локтевая кость"], ["urethra, ae f", "мочеиспускательный канал"], ["vagina, ae f", "влагалище"], ["valva, ae f", "клапан"], ["valvula, ae f", "заслонка"], ["vena, ae f", "вена"], ["vertebra, ae f", "позвонок"], ["vesica, ae f", "пузырь"]]}, {"id": "u2", "title": "II склонение", "words": [["acromion, i n", "акромион"], ["alveolus, i m", "альвеола"], ["angulus, i m", "угол"], ["antebrachium, i n", "предплечье"], ["anus, i m", "задний проход"], ["atrium, i n", "предсердие; преддверие"], ["brachium, i n", "плечо"], ["bronchus, i m", "бронх"], ["bulbus, i m", "луковица"], ["caecum, i n", "слепая кишка"], ["calcaneus, i m", "пяточная кость"], ["carpus, i m", "запястье"], ["cavum, i n", "полость"], ["cerebellum, i n", "мозжечок"], ["cerebrum, i n", "большой мозг"], ["collum, i n", "шея, шейка"], ["colon, i n", "ободочная кишка"], ["condylus, i m", "мыщелок"], ["cranium, i n", "череп"], ["digitus, i m", "палец"], ["dorsum, i n", "спина, тыльная поверхность"], ["duodenum, i n", "двенадцатиперстная кишка"], ["encephalon, i n", "головной мозг"], ["enamelum, i n", "эмаль"], ["frenulum, i n", "уздечка"], ["fundus, i m", "дно"], ["ganglion, i n", "ганглий, нервный узел"], ["gyrus, i m", "извилина"], ["humerus, i m", "плечевая кость"], ["ileum, i n", "подвздошная кишка"], ["intestinum, i n", "кишка"], ["jejunum, i n", "тощая кишка"], ["labium, i n", "губа"], ["ligamentum, i n", "связка"], ["lobus, i m", "доля"], ["manubrium, i n", "рукоятка"], ["membrum, i n", "конечность"], ["metacarpus, i m", "пясть"], ["metatarsus, i m", "плюсна"], ["musculus, i m", "мышца"], ["nasus, i m", "нос"], ["nervus, i m", "нерв"], ["nodus, i m", "узел"], ["nucleus, i m", "ядро"], ["oculus, i m", "глаз"], ["oesophagus, i m", "пищевод"], ["organum, i n", "орган"], ["ostium, i n", "устье, отверстие"], ["ovarium, i n", "яичник"], ["palatum, i n", "нёбо"], ["peritoneum, i n", "брюшина"], ["pylorus, i m", "привратник"], ["radius, i m", "лучевая кость"], ["ramus, i m", "ветвь"], ["rectum, i n", "прямая кишка"], ["retinaculum, i n", "удерживатель"], ["segmentum, i n", "сегмент"], ["septum, i n", "перегородка"], ["skeleton, i n", "скелет"], ["spatium, i n", "пространство, промежуток"], ["sternum, i n", "грудина"], ["stratum, i n", "слой"], ["sulcus, i m", "борозда"], ["supercilium, i n", "бровь"], ["talus, i m", "таранная кость"], ["tarsus, i m", "предплюсна"], ["thymus, i m", "вилочковая железа, тимус"], ["truncus, i m", "туловище, ствол"], ["tuberculum, i n", "бугорок"], ["tympanum, i n", "барабан"], ["uterus, i m", "матка"], ["ventriculus, i m", "желудок, желудочек"], ["vestibulum, i n", "преддверие"]]}, {"id": "u3", "title": "III склонение", "words": [["abdomen, inis n", "живот"], ["apex, icis m", "верхушка"], ["articulatio, onis f", "сустав"], ["atlas, antis m", "атлант (I шейный позвонок)"], ["auris, is f", "ухо"], ["axis, is m", "ось; осевой (II шейный) позвонок"], ["basis, is f", "основание"], ["canalis, is m", "канал"], ["caput, itis n", "голова, головка"], ["cartilago, inis f", "хрящ"], ["cavitas, atis f", "полость"], ["cervix, icis f", "шейка"], ["coccyx, ygis m", "копчик"], ["cor, cordis n", "сердце"], ["corpus, oris n", "тело"], ["cortex, icis m", "кора"], ["crus, cruris n", "голень"], ["cutis, is f", "кожа"], ["dens, dentis m", "зуб"], ["extremitas, atis f", "конец"], ["femur, oris n", "бедро"], ["foramen, inis n", "отверстие"], ["fornix, icis m", "свод"], ["frons, frontis f", "лоб"], ["gaster, tris f", "желудок"], ["hepar, atis n", "печень"], ["impressio, onis f", "вдавление"], ["index, icis m", "указательный палец"], ["larynx, ngis f", "гортань"], ["lens, lentis f", "хрусталик"], ["lien, enis m", "селезёнка"], ["margo, inis m", "край"], ["meninx, ngis f", "мозговая оболочка"], ["abductor, oris m", "отводящая мышца", "musculus abductor"], ["adductor, oris m", "приводящая мышца", "musculus adductor"], ["buccinator, oris m", "щёчная мышца", "musculus buccinator"], ["corrugator, oris m", "сморщивающая мышца", "musculus corrugator"], ["depressor, oris m", "опускающая мышца", "musculus depressor"], ["extensor, oris m", "разгибатель", "musculus extensor"], ["flexor, oris m", "сгибатель", "musculus flexor"], ["levator, oris m", "поднимающая мышца", "musculus levator"], ["masseter, eris m", "жевательная мышца", "musculus masseter"], ["rotator, oris m", "вращатель", "musculus rotator"], ["tensor, oris m", "напрягатель (напрягающая мышца)", "musculus tensor"], ["occiput, itis n", "затылок"], ["os, oris n", "рот"], ["os, ossis n", "кость"], ["pancreas, atis n", "поджелудочная железа"], ["paries, etis m", "стенка"], ["pars, partis f", "часть"], ["pelvis, is f", "таз"], ["pes, pedis m", "стопа"], ["phalanx, ngis f", "фаланга"], ["pharynx, ngis m", "глотка"], ["pollex, icis m", "большой палец руки"], ["pubes, is f", "лобок"], ["pulmo, onis m", "лёгкое"], ["pyramis, idis f", "пирамида"], ["radix, icis f", "корень"], ["regio, onis f", "область"], ["ren, renis m", "почка"], ["tendo, inis m", "сухожилие"], ["thorax, acis m", "грудная клетка"], ["trochanter, eris m", "вертел"], ["tuber, eris n", "бугор"], ["tuberositas, atis f", "бугристость"], ["ureter, eris m", "мочеточник"], ["vas, vasis n", "сосуд"], ["venter, tris m", "брюшко (мышцы); живот"], ["vomer, eris m", "сошник"], ["zygoma, atis n", "скула"]]}, {"id": "u4", "title": "IV и V склонение", "words": [["arcus, us m", "дуга"], ["cornu, us n", "рог"], ["ductus, us m", "проток"], ["facies, ei f", "лицо, поверхность"], ["genu, us n", "колено"], ["hiatus, us m", "расщелина"], ["manus, us f", "кисть (руки)"], ["meatus, us m", "ход, проход"], ["processus, us m", "отросток"], ["plexus, us m", "сплетение"], ["recessus, us m", "углубление, карман"], ["sinus, us m", "пазуха"]]}, {"id": "u5", "title": "Прилагательные I–II скл.", "words": [["accessorius, a, um", "добавочный"], ["albus, a, um", "белый"], ["arteriosus, a, um", "артериальный"], ["asper, era, erum", "шероховатый"], ["caecus, a, um", "слепой"], ["calcaneus, a, um", "пяточный", "прилагательное; ср. calcaneus, i m — пяточная кость"], ["caninus, a, um", "клыковый", "dens caninus — клык"], ["cardiacus, a, um", "сердечный"], ["cavernosus, a, um", "пещеристый"], ["cavus, a, um", "полый"], ["coccygeus, a, um", "копчиковый"], ["cutaneus, a, um", "кожный"], ["deciduus, a, um", "молочный (выпадающий)", "dens deciduus — молочный зуб"], ["dexter, tra, trum", "правый"], ["externus, a, um", "наружный"], ["fibrosus, a, um", "фиброзный"], ["flavus, a, um", "жёлтый"], ["gastricus, a, um", "желудочный"], ["hepaticus, a, um", "печёночный"], ["hyoideus, a, um", "подъязычный", "os hyoideum — подъязычная кость"], ["hypoglossus, a, um", "подъязычный", "nervus hypoglossus — подъязычный нерв"], ["iliacus, a, um", "подвздошный"], ["incisivus, a, um", "резцовый"], ["internus, a, um", "внутренний"], ["ischiadicus, a, um", "седалищный"], ["laryngeus, a, um", "гортанный"], ["latus, a, um", "широкий"], ["liber, era, erum", "свободный"], ["longus, a, um", "длинный"], ["lymphaticus, a, um", "лимфатический"], ["magnus, a, um", "большой"], ["mastoideus, a, um", "сосцевидный"], ["maximus, a, um", "наибольший"], ["medianus, a, um", "срединный"], ["medius, a, um", "средний"], ["membranaceus, a, um", "перепончатый"], ["minimus, a, um", "наименьший"], ["mucosus, a, um", "слизистый"], ["nutricius, a, um", "питательный"], ["obliquus, a, um", "косой"], ["oblongatus, a, um", "продолговатый"], ["oesophageus, a, um", "пищеводный"], ["ophthalmicus, a, um", "глазной"], ["opticus, a, um", "зрительный"], ["osseus, a, um", "костный"], ["palatinus, a, um", "нёбный"], ["parvus, a, um", "малый"], ["pelvicus, a, um", "тазовый"], ["petrosus, a, um", "каменистый"], ["phalangeus, a, um", "фаланговый"], ["pharyngeus, a, um", "глоточный"], ["profundus, a, um", "глубокий"], ["proprius, a, um", "собственный"], ["pterygoideus, a, um", "крыловидный"], ["pyloricus, a, um", "привратниковый"], ["rectus, a, um", "прямой"], ["ruber, bra, brum", "красный"], ["sacer, cra, crum", "священный", "os sacrum — крестец"], ["scaphoideus, a, um", "ладьевидный"], ["serosus, a, um", "серозный"], ["serotinus, a, um", "поздний", "dens serotinus — зуб мудрости"], ["sinister, tra, trum", "левый"], ["spinosus, a, um", "остистый"], ["squamosus, a, um", "чешуйчатый"], ["styloideus, a, um", "шиловидный"], ["stylopharyngeus, a, um", "шилоглоточный"], ["supremus, a, um", "наивысший"], ["thoracicus, a, um", "грудной"], ["thyroideus, a, um", "щитовидный"], ["transversus, a, um", "поперечный"], ["tympanicus, a, um", "барабанный"], ["urinarius, a, um", "мочевой"], ["uterinus, a, um", "маточный"], ["venosus, a, um", "венозный"], ["xiphoideus, a, um", "мечевидный"], ["zygomaticus, a, um", "скуловой"]]}, {"id": "u6", "title": "Прилагательные III скл.", "words": [["alaris, e", "крыльный"], ["anterior, ius", "передний"], ["articularis, e", "суставной"], ["auricularis, e", "ушной"], ["biceps, cipitis", "двуглавый"], ["biliaris, e", "желчный"], ["brevis, e", "короткий"], ["cerebralis, e", "мозговой"], ["cervicalis, e", "шейный"], ["communis, e", "общий"], ["dentalis, e", "зубной"], ["distalis, e", "дистальный"], ["ethmoidalis, e", "решётчатый"], ["facialis, e", "лицевой"], ["frontalis, e", "лобный"], ["genitalis, e", "половой"], ["inferior, ius", "нижний"], ["jugularis, e", "яремный"], ["lacrimalis, e", "слёзный"], ["lateralis, e", "латеральный"], ["longitudinalis, e", "продольный"], ["lumbalis, e", "поясничный"], ["major, jus", "большой"], ["medialis, e", "медиальный"], ["mentalis, e", "подбородочный"], ["minor, us", "малый"], ["mollis, e", "мягкий"], ["nasalis, e", "носовой"], ["occipitalis, e", "затылочный"], ["parietalis, e", "теменной"], ["peritonealis, e", "брюшинный"], ["posterior, ius", "задний"], ["premolaris, e", "премолярный (малый коренной)"], ["pulmonalis, e", "лёгочный"], ["sacralis, e", "крестцовый"], ["simplex, icis", "простой"], ["sphenoidalis, e", "клиновидный"], ["spinalis, e", "спинномозговой"], ["sublingualis, e", "подъязычный", "glandula sublingualis — подъязычная железа"], ["superficialis, e", "поверхностный"], ["superior, ius", "верхний"], ["temporalis, e", "височный"], ["tenuis, e", "тонкий"]]}, {"id": "u7", "title": "Устойчивые сочетания", "words": [["articulatio coxae", "тазобедренный сустав"], ["atrium cordis", "предсердие (сердца)"], ["bulbus oculi", "глазное яблоко"], ["medulla ossium", "костный мозг"], ["medulla spinalis", "спинной мозг"], ["dura mater", "твёрдая мозговая оболочка"], ["pia mater", "мягкая мозговая оболочка"], ["arachnoidea mater", "паутинная мозговая оболочка"], ["os coxae", "тазовая кость"], ["os ilii", "подвздошная кость"], ["os ischii", "седалищная кость"], ["pelvis renalis", "почечная лоханка"], ["vena portae", "воротная вена"]]}];
+
+/* ---------- icons ---------- */
+const IC = {
+  x:'<svg class="i" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>',
+  check:'<svg class="i" viewBox="0 0 24 24"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  speaker:'<svg class="i" viewBox="0 0 24 24"><path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4z"/><path d="M15.5 9a4 4 0 010 6M18 6.5a7.5 7.5 0 010 11"/></svg>',
+  flame:'<svg class="i" viewBox="0 0 24 24"><path d="M12 3c1 4 5 5.5 5 10a5 5 0 01-10 0c0-2.2 1-3.6 2.2-4.7.2 1.6 1 2.7 2 3.2C11 9 11 6 12 3z"/></svg>',
+  search:'<svg class="i" viewBox="0 0 24 24"><circle cx="11" cy="11" r="6.5"/><path d="M20 20l-4.2-4.2"/></svg>',
+  cards:'<svg class="i" viewBox="0 0 24 24"><rect x="3" y="6" width="14" height="14" rx="2"/><path d="M7 3h12a2 2 0 012 2v12"/></svg>',
+  repeat:'<svg class="i" viewBox="0 0 24 24"><path d="M4 12a8 8 0 0113.7-5.6L20 9"/><path d="M20 4v5h-5"/><path d="M20 12a8 8 0 01-13.7 5.6L4 15"/><path d="M4 20v-5h5"/></svg>',
+  play:'<svg class="i" viewBox="0 0 24 24"><path d="M7 5l12 7-12 7z"/></svg>'
+};
+
+/* ---------- words ---------- */
+const WORDS = [];
+UNITS.forEach((u, ui) => {
+  u.idx = ui; u.list = [];
+  u.words.forEach(([lat, rus, note]) => {
+    const parts = lat.split(",");
+    const head = parts[0].trim();
+    const gram = parts.length > 1 ? parts.slice(1).join(",").trim() : "";
+    const gm = gram.match(/\s([mfn])$/);
+    const kind = gm ? "noun" : (gram ? "adj" : "phrase");
+    const w = { id: u.id + ":" + lat.replace(/\s+/g, " "), lat, head, gram, rus, note: note || "", kind,
+      gender: gm ? gm[1] : null, unit: ui, oldKey: null };
+    WORDS.push(w); u.list.push(w);
+  });
+  // lessons of ~8 words; a tiny tail is merged into the last lesson
+  const n = u.list.length, size = 8; u.lessons = [];
+  for (let i = 0; i < n; i += size) u.lessons.push(u.list.slice(i, i + size));
+  if (u.lessons.length > 1 && u.lessons[u.lessons.length - 1].length < 4) {
+    const tail = u.lessons.pop(); u.lessons[u.lessons.length - 1].push(...tail);
+  }
+});
+const byId = Object.fromEntries(WORDS.map(w => [w.id, w]));
+
+/* ---------- storage ---------- */
+const KEY = "latAnat.v2";
+let storageOK = true;
+const mem = {};
+function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { storageOK = false; return mem[k] ?? null; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } }
+(function probe() { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); } catch (e) { storageOK = false; } })();
+
+function freshState() {
+  return { v: 2, words: {}, lessons: {}, xp: 0, days: {}, bestStreak: 0,
+    settings: { audio: true, autoplay: true, rate: 0.85, goal: 20, theme: "auto", voice: "" } };
+}
+let S = freshState();
+function load() {
+  try {
+    const raw = lsGet(KEY);
+    if (raw) { const d = JSON.parse(raw); S = Object.assign(freshState(), d); S.settings = Object.assign(freshState().settings, d.settings || {}); }
+    else {
+      // migrate the old version («lat_known»: "lat|rus")
+      const old = JSON.parse(lsGet("lat_known") || "[]");
+      if (Array.isArray(old) && old.length) {
+        const lats = new Set(old.map(k => String(k).split("|")[0]));
+        WORDS.forEach(w => { if (lats.has(w.lat) || lats.has(w.lat.replace(", ", ",")) ) S.words[w.id] = { s: 1, due: Date.now(), seen: 1, ok: 1, bad: 0 }; });
+        save();
+      }
+    }
+  } catch (e) { S = freshState(); }
+}
+function save() { lsSet(KEY, JSON.stringify(S)); }
+
+/* ---------- dates, streak, xp ---------- */
+function dayKey(d = new Date()) { return d.getFullYear() + "-" + String(d.getMonth() + 1).padStart(2, "0") + "-" + String(d.getDate()).padStart(2, "0"); }
+function addDays(d, n) { const x = new Date(d); x.setDate(x.getDate() + n); return x; }
+function streak() {
+  let d = new Date(), n = 0;
+  if (!S.days[dayKey(d)]) d = addDays(d, -1); // today not done yet: streak still alive from yesterday
+  while (S.days[dayKey(d)]) { n++; d = addDays(d, -1); }
+  return n;
+}
+function todayXp() { return S.days[dayKey()] || 0; }
+function addXp(n) {
+  const before = todayXp();
+  S.xp += n; S.days[dayKey()] = before + n;
+  S.bestStreak = Math.max(S.bestStreak || 0, streak());
+  save();
+  return before === 0; // first activity today → streak extended
+}
+
+/* ---------- spaced repetition (simple Leitner) ---------- */
+const INTERVALS = [0, 1, 3, 7, 16, 35].map(d => d * 864e5);
+function ws(w) { return S.words[w.id] || { s: 0, due: 0, seen: 0, ok: 0, bad: 0 }; }
+function mark(w, ok) {
+  const r = Object.assign({ s: 0, due: 0, seen: 1, ok: 0, bad: 0 }, S.words[w.id]);
+  r.seen = 1;
+  if (ok) { r.ok++; r.s = Math.min(5, r.s + 1); r.due = Date.now() + INTERVALS[r.s]; }
+  else { r.bad++; r.s = Math.max(0, r.s - 1); r.due = Date.now(); }
+  S.words[w.id] = r;
+}
+function dueWords() {
+  const now = Date.now();
+  return WORDS.filter(w => S.words[w.id] && S.words[w.id].seen && S.words[w.id].due <= now)
+    .sort((a, b) => ws(a).s - ws(b).s || ws(a).due - ws(b).due);
+}
+function lessonKey(ui, li) { return UNITS[ui].id + "-" + li; }
+function lessonDone(ui, li) { return !!S.lessons[lessonKey(ui, li)]; }
+function nextLesson() {
+  for (const u of UNITS) for (let li = 0; li < u.lessons.length; li++) if (!lessonDone(u.idx, li)) return [u.idx, li];
+  return null;
+}
+
+/* ---------- speech ---------- */
+const TTS = { ok: "speechSynthesis" in window && typeof SpeechSynthesisUtterance !== "undefined", voices: [] };
+function pickVoices() {
+  if (!TTS.ok) return;
+  const all = speechSynthesis.getVoices() || [];
+  const rank = v => { const l = (v.lang || "").toLowerCase(); return l.startsWith("la") ? 0 : l.startsWith("it") ? 1 : l.startsWith("es") ? 2 : 9; };
+  TTS.voices = all.filter(v => rank(v) < 9).sort((a, b) => rank(a) - rank(b) || (b.localService - a.localService));
+  TTS.all = all;
+}
+if (TTS.ok) { pickVoices(); speechSynthesis.onvoiceschanged = () => { pickVoices(); if (curTab === "stats") renderStats(); }; }
+function speakText(w) {
+  // read the word itself, not the grammar tail («lingua, ae f» → «lingua»)
+  return (w.kind === "phrase" ? w.lat : w.head).replace(/[()]/g, "");
+}
+function speak(w) {
+  if (!TTS.ok || !S.settings.audio) return;
+  try {
+    speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(speakText(w));
+    let v = TTS.voices.find(v => v.voiceURI === S.settings.voice) || TTS.voices[0];
+    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "it-IT";
+    u.rate = S.settings.rate || 0.85;
+    speechSynthesis.speak(u);
+  } catch (e) {}
+}
+function speakBtn(w, cls = "icon-btn") {
+  if (!TTS.ok || !S.settings.audio) return "";
+  return `<button class="${cls}" data-say="${esc(w.id)}" aria-label="Прослушать">${IC.speaker}</button>`;
+}
+document.addEventListener("click", e => {
+  const b = e.target.closest("[data-say]");
+  if (b) { e.stopPropagation(); speak(byId[b.dataset.say]); }
+}, true);
+
+/* ---------- helpers ---------- */
+const $ = s => document.querySelector(s);
+function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c])); }
+function shuffle(a) { a = a.slice(); for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; } return a; }
+function sample(a, n) { return shuffle(a).slice(0, n); }
+function toast(t) { const el = $("#toast"); el.textContent = t; el.classList.add("on"); clearTimeout(toast.t); toast.t = setTimeout(() => el.classList.remove("on"), 2200); }
+function plural(n, a, b, c) { const m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c; }
+function rusTokens(s) { return s.toLowerCase().replace(/ё/g, "е").replace(/\([^)]*\)/g, "").split(/[;,]/).map(x => x.trim()).filter(Boolean); }
+function clash(a, b) {
+  if (a.head === b.head) return true;
+  const ta = rusTokens(a.rus), tb = rusTokens(b.rus);
+  return ta.some(x => tb.includes(x));
+}
+function distractors(w, n, pool) {
+  const ok = x => x !== w && !clash(x, w);
+  let cand = shuffle((pool || []).filter(ok));
+  const same = shuffle(UNITS[w.unit].list.filter(x => ok(x) && x.kind === w.kind && !cand.includes(x)));
+  const rest = shuffle(WORDS.filter(x => ok(x) && x.kind === w.kind && !cand.includes(x) && !same.includes(x)));
+  const out = [];
+  for (const x of [...cand, ...same, ...rest]) { if (out.length >= n) break; if (!out.some(o => clash(o, x))) out.push(x); }
+  return out;
+}
+function norm(s) {
+  return s.toLowerCase().replace(/æ/g, "ae").replace(/œ/g, "oe").replace(/[āăáàâ]/g, "a").replace(/[ēĕéèê]/g, "e").replace(/[īĭíìî]/g, "i")
+    .replace(/[ōŏóòô]/g, "o").replace(/[ūŭúùû]/g, "u").replace(/[ȳ]/g, "y").replace(/[()]/g, "").replace(/[^a-z\s]/g, " ").replace(/\s+/g, " ").trim();
+}
+function typedOk(w, val) {
+  const v = norm(val); if (!v) return false;
+  const target = norm(w.kind === "phrase" ? w.lat : w.head);
+  if (v === target) return true;
+  if (norm(w.lat).startsWith(v) && v.startsWith(target)) return true; // typed with grammar tail
+  // one-letter typo tolerance for long words
+  if (target.length >= 7 && lev(v, target) === 1) return "typo";
+  return false;
+}
+function lev(a, b) {
+  const m = a.length, n = b.length; if (Math.abs(m - n) > 1) return 2;
+  const d = Array.from({ length: m + 1 }, (_, i) => [i]);
+  for (let j = 1; j <= n; j++) d[0][j] = j;
+  for (let i = 1; i <= m; i++) for (let j = 1; j <= n; j++) d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1));
+  return d[m][n];
+}
+const GENDER = { m: "мужской", f: "женский", n: "средний" };
+function latHTML(w, big) {
+  return `<span class="lat ${big ? "big" : ""}">${esc(w.head)}</span>${w.gram ? `<span class="gram">, ${esc(w.gram)}</span>` : ""}`;
+}
+
+/* ---------- tabs ---------- */
+let curTab = "learn";
+$("#tabbar").addEventListener("click", e => {
+  const b = e.target.closest("button[data-tab]"); if (!b) return;
+  showTab(b.dataset.tab);
+});
+function showTab(t) {
+  curTab = t;
+  document.querySelectorAll("#tabbar button").forEach(b => b.classList.toggle("on", b.dataset.tab === t));
+  ["learn", "dict", "stats"].forEach(x => $("#tab-" + x).classList.toggle("hidden", x !== t));
+  render();
+  window.scrollTo(0, 0);
+}
+function renderTop() {
+  const st = streak();
+  $("#streakN").textContent = st; $("#pillStreak").classList.toggle("off", !todayXp());
+  $("#pillStreak").title = todayXp() ? "Серия: " + st + " " + plural(st, "день", "дня", "дней") : "Сегодня ещё не занимались";
+  $("#xpN").textContent = S.xp;
+}
+function render() {
+  renderTop();
+  if (curTab === "learn") renderLearn(); else if (curTab === "dict") renderDict(); else renderStats();
+}
+
+/* ---------- learn tab ---------- */
+function renderLearn() {
+  const nx = nextLesson(), due = dueWords().length, goal = S.settings.goal, tx = todayXp();
+  const pct = Math.min(1, tx / goal), C = 2 * Math.PI * 24;
+  const learned = WORDS.filter(w => ws(w).s >= 1).length;
+  const nxTxt = nx ? `${esc(UNITS[nx[0]].title)} · урок ${nx[1] + 1}` : "Все уроки пройдены";
+  let h = `<div class="home"><div class="side">
+    <h2 class="sec">Сегодня</h2>
+    <div class="card hero">
+      <div class="goal">
+        <svg class="ring" viewBox="0 0 56 56"><circle class="bgc" cx="28" cy="28" r="24"/><circle class="fgc" cx="28" cy="28" r="24" stroke-dasharray="${C}" stroke-dashoffset="${C * (1 - pct)}" transform="rotate(-90 28 28)"/></svg>
+        <div><b>${tx} / ${goal} XP</b><span class="muted">${tx >= goal ? "Цель дня выполнена" : "Цель дня"}</span></div>
+      </div>
+      <div><div class="next-title">Следующий урок</div><div style="font-weight:650">${nxTxt}</div></div>
+      <div class="hero-actions">
+        ${nx ? `<button class="btn" id="goNext">${IC.play} Продолжить</button>` : ""}
+        <button class="btn ghost" id="goReview" ${due || learned ? "" : "disabled"}>${IC.repeat} Повторение${due ? ` · ${due}` : ""}</button>
+      </div>
+    </div>
+    ${storageOK ? "" : `<div class="card storage-warn">Браузер не даёт сохранять прогресс в этом режиме. Откройте файл в Chrome или Safari, а не во встроенном просмотрщике, или сохраняйте прогресс в файл во вкладке «Прогресс».</div>`}
+    <div class="card stat"><b>${learned} <span class="muted" style="font-size:1rem">из ${WORDS.length}</span></b><span>слов изучено</span></div>
+  </div><div class="main"><h2 class="sec">Разделы</h2><div class="units">`;
+  UNITS.forEach(u => {
+    const doneL = u.lessons.filter((_, li) => lessonDone(u.idx, li)).length;
+    h += `<div class="card unit"><div class="unit-head"><h3>${esc(u.title)}</h3><span class="cnt">${u.list.length} ${plural(u.list.length, "слово", "слова", "слов")}</span></div>
+      <div class="bar"><i style="width:${doneL / u.lessons.length * 100}%"></i></div><div class="lessons">`;
+    u.lessons.forEach((_, li) => {
+      const d = lessonDone(u.idx, li), isNext = nx && nx[0] === u.idx && nx[1] === li;
+      h += `<button class="lesson-dot ${d ? "passed" : ""} ${isNext ? "next" : ""}" data-l="${u.idx},${li}" aria-label="Урок ${li + 1}${d ? ", пройден" : ""}">${d ? IC.check : li + 1}</button>`;
+    });
+    h += `</div></div>`;
+  });
+  h += `</div></div></div>`;
+  $("#tab-learn").innerHTML = h;
+  const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
+  $("#goReview").onclick = startReview;
+  $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
+}
+
+/* ---------- dictionary tab ---------- */
+let dictUnit = -1, dictQ = "";
+function renderDict() {
+  const el = $("#tab-dict");
+  if (!el.dataset.built) {
+    el.innerHTML = `<div class="dict-tools">
+      <div style="display:flex;gap:10px"><div class="card search" style="flex:1">${IC.search}<input id="dq" type="search" placeholder="Поиск: латынь или русский" autocomplete="off" autocapitalize="off" spellcheck="false"></div>
+      <button class="btn ghost sm" id="flashBtn" style="min-height:48px">${IC.cards}<span>Карточки</span></button></div>
+      <div class="chips" id="dchips"></div></div><div class="card dict-list" id="dlist"></div>`;
+    el.dataset.built = 1;
+    $("#dq").addEventListener("input", e => { dictQ = e.target.value; renderDictList(); });
+    $("#flashBtn").onclick = () => startFlash(dictList());
+  }
+  $("#dchips").innerHTML = [`<button class="chip ${dictUnit < 0 ? "on" : ""}" data-u="-1">Все · ${WORDS.length}</button>`]
+    .concat(UNITS.map(u => `<button class="chip ${dictUnit === u.idx ? "on" : ""}" data-u="${u.idx}">${esc(u.title)}</button>`)).join("");
+  $("#dchips").querySelectorAll(".chip").forEach(c => c.onclick = () => { dictUnit = +c.dataset.u; renderDict(); });
+  renderDictList();
+}
+function dictList() {
+  const q = norm(dictQ), qr = dictQ.toLowerCase().replace(/ё/g, "е").trim();
+  return WORDS.filter(w => (dictUnit < 0 || w.unit === dictUnit) &&
+    (!qr || norm(w.lat).includes(q) && q || w.rus.toLowerCase().replace(/ё/g, "е").includes(qr) || w.note.toLowerCase().includes(qr)));
+}
+function renderDictList() {
+  const list = dictList();
+  $("#dlist").innerHTML = list.length ? list.map(w => {
+    const s = ws(w).s;
+    return `<div class="row"><div class="t"><div>${latHTML(w)}</div><div class="ru">${esc(w.rus)}</div>${w.note ? `<div class="nt">${esc(w.note)}</div>` : ""}</div>
+      <div class="dots" title="Уровень ${s} из 5">${[1, 2, 3, 4, 5].map(i => `<i class="${s >= i ? "f" : ""}"></i>`).join("")}</div>${speakBtn(w)}</div>`;
+  }).join("") : `<div class="empty">Ничего не найдено</div>`;
+  $("#flashBtn").disabled = !list.length;
+}
+
+/* ---------- stats tab ---------- */
+function renderStats() {
+  const learned = WORDS.filter(w => ws(w).s >= 1).length, strong = WORDS.filter(w => ws(w).s >= 4).length;
+  const lessonsDone = Object.keys(S.lessons).length, totalL = UNITS.reduce((a, u) => a + u.lessons.length, 0);
+  const days = []; for (let i = 6; i >= 0; i--) days.push(addDays(new Date(), -i));
+  const mx = Math.max(S.settings.goal, ...days.map(d => S.days[dayKey(d)] || 0));
+  const wd = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
+  const voices = TTS.ok ? (TTS.voices.length ? TTS.voices : (TTS.all || [])) : [];
+  let h = `<div class="stats-layout"><div>
+    <h2 class="sec">Итоги</h2>
+    <div class="stat-grid">
+      <div class="card stat"><b>${streak()}</b><span>${plural(streak(), "день", "дня", "дней")} подряд</span></div>
+      <div class="card stat"><b>${S.xp}</b><span>XP всего</span></div>
+      <div class="card stat"><b>${learned}</b><span>из ${WORDS.length} слов</span></div>
+      <div class="card stat"><b>${lessonsDone}/${totalL}</b><span>уроков</span></div>
+    </div>
+    <h2 class="sec">Последние 7 дней</h2>
+    <div class="card week">${days.map(d => { const x = S.days[dayKey(d)] || 0; return `<div><span>${x || ""}</span><i class="${x ? "f" : ""}" style="height:${Math.max(4, x / mx * 70)}px"></i>${wd[d.getDay()]}</div>`; }).join("")}</div>
+    <h2 class="sec">По разделам</h2>
+    <div class="card settings">${UNITS.map(u => { const k = u.list.filter(w => ws(w).s >= 1).length; return `<div class="set"><div class="lbl">${esc(u.title)}<small>${k} из ${u.list.length} · ${u.list.filter(w => ws(w).s >= 4).length} прочно</small></div><div class="bar" style="width:38%;margin:0"><i style="width:${k / u.list.length * 100}%"></i></div></div>`; }).join("")}</div>
+    <p class="muted" style="font-size:.85rem;margin:10px 4px">Прочно — слово правильно отвечено 4+ раза с интервалами. Лучшая серия: ${S.bestStreak || 0}.</p>
+  </div><div>
+    <h2 class="sec">Настройки</h2>
+    <div class="card settings">
+      <div class="set"><label for="sAudio">Озвучка латыни<small>${TTS.ok ? (TTS.voices.length ? "Голос: " + esc(TTS.voices[0].name) : "Нет итальянского голоса — будет голос по умолчанию") : "Браузер не поддерживает озвучку"}</small></label>
+        <span class="switch"><input type="checkbox" id="sAudio" ${S.settings.audio ? "checked" : ""} ${TTS.ok ? "" : "disabled"}><span></span></span></div>
+      <div class="set"><label for="sAuto">Произносить автоматически<small>После ответа и на новых словах</small></label>
+        <span class="switch"><input type="checkbox" id="sAuto" ${S.settings.autoplay ? "checked" : ""} ${TTS.ok ? "" : "disabled"}><span></span></span></div>
+      ${voices.length > 1 ? `<div class="set"><label for="sVoice">Голос</label><select id="sVoice">${voices.map(v => `<option value="${esc(v.voiceURI)}" ${v.voiceURI === S.settings.voice ? "selected" : ""}>${esc(v.name)} (${esc(v.lang)})</option>`).join("")}</select></div>` : ""}
+      <div class="set"><label for="sRate">Скорость речи</label><select id="sRate">${[[0.7, "медленно"], [0.85, "спокойно"], [1, "обычно"]].map(([v, t]) => `<option value="${v}" ${S.settings.rate == v ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      <div class="set"><label for="sGoal">Цель дня</label><select id="sGoal">${[10, 20, 30, 50].map(v => `<option value="${v}" ${S.settings.goal == v ? "selected" : ""}>${v} XP</option>`).join("")}</select></div>
+      <div class="set"><label for="sTheme">Тема</label><select id="sTheme">${[["auto", "как в системе"], ["light", "светлая"], ["dark", "тёмная"]].map(([v, t]) => `<option value="${v}" ${S.settings.theme === v ? "selected" : ""}>${t}</option>`).join("")}</select></div>
+      <div class="set-actions">
+        <div class="muted" style="font-size:.85rem">Прогресс хранится в этом браузере на этом устройстве. Чтобы перенести его с телефона на планшет, сохраните файл и загрузите его на другом устройстве.</div>
+        <button class="btn ghost" id="sExport">Сохранить прогресс в файл</button>
+        <button class="btn ghost" id="sImport">Загрузить прогресс из файла</button>
+        <button class="btn ghost" id="sReset" style="color:var(--bad)">Сбросить прогресс</button>
+      </div>
+    </div>
+  </div></div>`;
+  $("#tab-stats").innerHTML = h;
+  $("#sAudio").onchange = e => { S.settings.audio = e.target.checked; save(); };
+  $("#sAuto").onchange = e => { S.settings.autoplay = e.target.checked; save(); };
+  const sv = $("#sVoice"); if (sv) sv.onchange = e => { S.settings.voice = e.target.value; save(); const v = TTS.voices.find(v => v.voiceURI === S.settings.voice); if (v) TTS.voices = [v, ...TTS.voices.filter(x => x !== v)]; speak(WORDS[0]); };
+  $("#sRate").onchange = e => { S.settings.rate = +e.target.value; save(); speak(WORDS[0]); };
+  $("#sGoal").onchange = e => { S.settings.goal = +e.target.value; save(); };
+  $("#sTheme").onchange = e => { S.settings.theme = e.target.value; save(); applyTheme(); };
+  $("#sExport").onclick = exportProgress;
+  $("#sImport").onclick = () => $("#importFile").click();
+  $("#sReset").onclick = () => { if (confirm("Сбросить весь прогресс, XP и серию? Это нельзя отменить.")) { const st = S.settings; S = freshState(); S.settings = st; save(); render(); toast("Прогресс сброшен"); } };
+}
+function applyTheme() { const t = S.settings.theme; if (t === "auto") document.documentElement.removeAttribute("data-theme"); else document.documentElement.setAttribute("data-theme", t); }
+function exportProgress() {
+  const blob = new Blob([JSON.stringify(S)], { type: "application/json" });
+  const a = document.createElement("a"); a.href = URL.createObjectURL(blob); a.download = "latin-progress-" + dayKey() + ".json";
+  document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+  toast("Файл прогресса сохранён");
+}
+$("#importFile").addEventListener("change", e => {
+  const f = e.target.files[0]; if (!f) return;
+  const r = new FileReader();
+  r.onload = () => {
+    try { const d = JSON.parse(r.result); if (!d || d.v !== 2 || typeof d.words !== "object") throw 0;
+      S = Object.assign(freshState(), d); S.settings = Object.assign(freshState().settings, d.settings || {}); save(); applyTheme(); render(); toast("Прогресс загружен");
+    } catch (err) { toast("Не похоже на файл прогресса"); }
+    e.target.value = "";
+  };
+  r.readAsText(f);
+});
+
+/* ---------- session engine ---------- */
+let SES = null;
+function buildSteps(words, mode) {
+  const steps = [];
+  if (mode === "lesson") {
+    words.forEach(w => { if (!ws(w).seen) steps.push({ t: "intro", w }); steps.push({ t: "l2r", w }); });
+    if (words.length >= 4) steps.push({ t: "match", ws: sample(words, Math.min(5, words.length)) });
+    const typed = new Set(sample(words, Math.ceil(words.length / 3)));
+    shuffle(words).forEach(w => {
+      if (typed.has(w)) steps.push({ t: "type", w });
+      else if (w.kind === "noun" && Math.random() < 0.35) steps.push({ t: "gender", w });
+      else steps.push({ t: "r2l", w });
+    });
+  } else {
+    shuffle(words).forEach((w, i) => {
+      const s = ws(w).s, r = Math.random();
+      steps.push({ t: s >= 2 && r < 0.45 ? "type" : (w.kind === "noun" && r > 0.8 ? "gender" : (r < 0.7 ? "r2l" : "l2r")), w });
+    });
+    if (words.length >= 4) steps.splice(Math.min(3, steps.length), 0, { t: "match", ws: sample(words, Math.min(5, words.length)) });
+  }
+  return steps;
+}
+function startLesson(ui, li) {
+  const words = UNITS[ui].lessons[li];
+  startSession({ mode: "lesson", ui, li, words, title: `${UNITS[ui].title} · урок ${li + 1}` });
+}
+function startReview() {
+  let words = dueWords();
+  if (words.length < 6) {
+    const extra = WORDS.filter(w => ws(w).seen && !words.includes(w)).sort((a, b) => ws(a).s - ws(b).s || ws(a).due - ws(b).due);
+    words = words.concat(extra).slice(0, 10);
+  }
+  words = words.slice(0, 10);
+  if (!words.length) { toast("Сначала пройдите хотя бы один урок"); return; }
+  startSession({ mode: "review", words, title: "Повторение" });
+}
+function startSession(o) {
+  SES = Object.assign(o, { queue: buildSteps(o.words, o.mode), done: 0, mistakes: 0, answered: 0, firstTry: 0, t0: Date.now(), wrongWords: new Set(), seenOk: new Set() });
+  $("#session").classList.remove("hidden");
+  document.body.style.overflow = "hidden";
+  nextStep();
+}
+function closeSession(force) {
+  if (!force && SES && SES.done > 0 && !SES.finished && !confirm("Выйти из урока? Прогресс этого урока не сохранится, но изученные слова останутся.")) return;
+  if (TTS.ok) speechSynthesis.cancel();
+  $("#session").classList.add("hidden"); $("#session").innerHTML = "";
+  document.body.style.overflow = "";
+  SES = null; render();
+}
+function sessionFrame(body, foot) {
+  const total = SES.done + SES.queue.length;
+  const pct = SES.finished ? 100 : (SES.done / Math.max(1, total)) * 100;
+  $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button><div class="s-prog"><i style="width:${SES.lastPct || 0}%"></i></div></div>
+    <div class="s-body">${body}</div>${foot}`;
+  requestAnimationFrame(() => { const i = $("#session .s-prog i"); if (i) i.style.width = pct + "%"; SES.lastPct = pct; });
+  $("#sClose").onclick = () => closeSession(false);
+}
+function footCheck(label = "Проверить", disabled = true, skip = true) {
+  return `<div class="s-foot" id="foot"><div class="in"><div class="row2">${skip ? `<button class="btn ghost" id="skipBtn">Не знаю</button>` : ""}<button class="btn" id="checkBtn" ${disabled ? "disabled" : ""}>${label}</button></div></div></div>`;
+}
+function nextStep() {
+  if (!SES) return;
+  if (!SES.queue.length) return finish();
+  SES.cur = SES.queue.shift();
+  const st = SES.cur;
+  ({ intro: showIntro, l2r: showChoice, r2l: showChoice, gender: showGender, type: showType, match: showMatch })[st.t](st);
+}
+function feedback(ok, answerHTML, w, extra = "") {
+  const st = SES.cur;
+  SES.answered++;
+  if (ok) { SES.done++; if (!st.retry) SES.firstTry++; }
+  else {
+    SES.mistakes++; if (w) SES.wrongWords.add(w);
+    // no lives: the same task comes back a few steps later
+    const pos = Math.min(SES.queue.length, 2 + Math.floor(Math.random() * 2));
+    SES.queue.splice(pos, 0, Object.assign({}, st, { retry: true }));
+  }
+  if (w) {
+    // a word's level changes once per session: the first answer counts
+    if (!SES.seenOk.has(w.id)) { mark(w, ok); SES.seenOk.add(w.id); save(); }
+    else if (!ok) { const r = S.words[w.id]; if (r) { r.due = Date.now(); save(); } }
+    if (S.settings.autoplay) speak(w);
+  }
+  const foot = $("#foot");
+  foot.className = "s-foot " + (ok ? "ok" : "bad");
+  foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${ok ? IC.check : IC.x}</div><div><b>${ok === "typo" ? "Почти верно" : ok ? sample(["Верно", "Отлично", "Правильно"], 1)[0] : "Неверно"}</b>
+    <div class="ans">${answerHTML}</div>${extra}</div>${w && TTS.ok && S.settings.audio ? `<span style="margin-left:auto">${speakBtn(w)}</span>` : ""}</div>
+    <button class="btn ${ok ? "" : "bad"}" id="contBtn">Дальше</button></div>`;
+  const c = $("#contBtn"); c.onclick = nextStep; c.focus({ preventScroll: true });
+}
+function wordAnswer(w) { return `${latHTML(w)} — ${esc(w.rus)}${w.note ? `<div class="hint">${esc(w.note)}</div>` : ""}`; }
+
+function showIntro(st) {
+  const w = st.w;
+  sessionFrame(`<div class="q-kind">Новое слово</div><div class="card intro"><span class="badge">${esc(UNITS[w.unit].title)}</span>
+    <div><span class="lat">${esc(w.head)}</span></div>${w.gram ? `<div class="gram">${esc(w.gram)}${w.gender ? " · " + GENDER[w.gender] + " род" : ""}</div>` : ""}
+    <div class="ru">${esc(w.rus)}</div>${w.note ? `<div class="nt">${esc(w.note)}</div>` : ""}${speakBtn(w, "speak")}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="contBtn">Понятно</button></div></div>`);
+  if (S.settings.autoplay) setTimeout(() => speak(w), 250);
+  $("#contBtn").onclick = () => { SES.done++; nextStep(); };
+  $("#contBtn").focus({ preventScroll: true });
+}
+function showChoice(st) {
+  const w = st.w, l2r = st.t === "l2r";
+  const opts = shuffle([w, ...distractors(w, 3, SES.words)]);
+  const title = l2r ? "Выберите перевод" : "Как это по-латыни?";
+  const prompt = l2r ? `<div class="prompt"><div>${latHTML(w, true)}</div>${speakBtn(w, "speak")}</div>`
+    : `<div class="prompt"><span class="big ru">${esc(w.rus)}</span></div>${w.note && w.kind !== "phrase" && rusTokens(w.rus).length && WORDS.some(x => x !== w && clash(x, w) && x.head !== w.head) ? `<div class="hint" style="margin:-12px 0 16px">${esc(w.note)}</div>` : ""}`;
+  sessionFrame(`<div class="q-kind">${SES.cur.retry ? "Ещё раз" : (SES.mode === "review" ? "Повторение" : "Задание")}</div><h2 class="q-title">${title}</h2>${prompt}
+    <div class="opts ${l2r ? "two" : "two"}" id="opts">${opts.map((o, i) => `<button class="opt ${l2r ? "" : "lat-opt"}" data-i="${i}"><span class="k">${i + 1}</span><span>${l2r ? esc(o.rus) : esc(o.lat)}</span></button>`).join("")}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">Выберите вариант${matchMedia("(hover:hover)").matches ? " · клавиши 1–4" : ""}</div></div></div>`);
+  if (l2r && S.settings.autoplay && !st.retry) setTimeout(() => speak(w), 200);
+  const box = $("#opts");
+  box.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+    if (box.classList.contains("locked")) return;
+    box.classList.add("locked");
+    const o = opts[+b.dataset.i], ok = o === w;
+    box.querySelectorAll(".opt").forEach((x, i) => { if (opts[i] === w) x.classList.add("right"); else if (x === b) x.classList.add("wrong"); else x.classList.add("dim"); });
+    feedback(ok, wordAnswer(w), w);
+  });
+}
+function showGender(st) {
+  const w = st.w;
+  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Грамматика"}</div><h2 class="q-title">Какого рода это слово?</h2>
+    <div class="prompt"><div><span class="lat big">${esc(w.head)}</span><span class="gram">, ${esc(w.gram.replace(/\s[mfn]$/, ""))}</span></div>${speakBtn(w, "speak")}</div>
+    <div class="opts" id="opts">${["m", "f", "n"].map((g, i) => `<button class="opt" data-g="${g}"><span class="k">${i + 1}</span><span>${GENDER[g]} <span class="muted">(${g})</span></span></button>`).join("")}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">m — masculinum, f — femininum, n — neutrum</div></div></div>`);
+  const box = $("#opts");
+  box.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+    if (box.classList.contains("locked")) return;
+    box.classList.add("locked");
+    const ok = b.dataset.g === w.gender;
+    box.querySelectorAll(".opt").forEach(x => { if (x.dataset.g === w.gender) x.classList.add("right"); else if (x === b) x.classList.add("wrong"); else x.classList.add("dim"); });
+    feedback(ok, `${latHTML(w)} — ${GENDER[w.gender]} род · ${esc(w.rus)}`, w);
+  });
+}
+function showType(st) {
+  const w = st.w;
+  const hint = w.kind === "adj" ? "Форма мужского рода, например: longus" : w.kind === "noun" ? "Только именительный падеж, без окончаний род. п." : "Всё сочетание целиком";
+  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Письмо"}</div><h2 class="q-title">Напишите по-латыни</h2>
+    <div class="prompt"><span class="big ru">${esc(w.rus)}</span></div>${w.note && /подъязычн|ямка|шов|большой|малый|полость/.test(w.rus) ? `<div class="hint" style="margin:-12px 0 14px">Подсказка: ${esc(w.note.replace(new RegExp(w.head, "i"), "…"))}</div>` : ""}
+    <div class="type-wrap"><input class="type-in" id="tin" type="text" lang="la" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="латинское слово">
+    <div class="hint">${hint}</div></div>`, footCheck());
+  const inp = $("#tin"), cb = $("#checkBtn");
+  setTimeout(() => inp.focus(), 60);
+  inp.oninput = () => cb.disabled = !inp.value.trim();
+  const check = (skipped) => {
+    if (inp.readOnly) return;
+    inp.readOnly = true;
+    const r = skipped ? false : typedOk(w, inp.value);
+    inp.classList.add(r ? "right" : "wrong");
+    inp.blur();
+    feedback(r, wordAnswer(w), w, r === "typo" ? `<div class="hint">Проверьте написание: ${esc(w.head)}</div>` : "");
+  };
+  cb.onclick = () => check(false);
+  $("#skipBtn").onclick = () => check(true);
+  inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); e.stopPropagation(); check(false); } };
+}
+function showMatch(st) {
+  const ws_ = st.ws;
+  const left = shuffle(ws_), right = shuffle(ws_);
+  sessionFrame(`<div class="q-kind">${st.retry ? "Ещё раз" : "Пары"}</div><h2 class="q-title">Соедините пары</h2>
+    <div class="match" id="mt"><div class="col">${left.map(w => `<button class="opt lat-opt" data-id="${esc(w.id)}" data-side="l">${esc(w.head)}</button>`).join("")}</div>
+    <div class="col">${right.map(w => `<button class="opt" data-id="${esc(w.id)}" data-side="r">${esc(w.rus)}</button>`).join("")}</div></div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="hint" style="text-align:center">Нажмите слово слева, затем перевод справа</div></div></div>`);
+  let sel = { l: null, r: null }, left_n = ws_.length, errs = 0;
+  const mt = $("#mt");
+  mt.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+    const side = b.dataset.side;
+    if (sel[side]) sel[side].classList.remove("sel");
+    if (sel[side] === b) { sel[side] = null; return; }
+    sel[side] = b; b.classList.add("sel");
+    if (side === "l") speak(byId[b.dataset.id]);
+    if (sel.l && sel.r) {
+      const a = sel.l, c = sel.r;
+      if (a.dataset.id === c.dataset.id) {
+        [a, c].forEach(x => { x.classList.remove("sel"); x.classList.add("right"); setTimeout(() => { x.classList.remove("right"); x.classList.add("gone"); }, 250); });
+        left_n--;
+      } else {
+        errs++; SES.mistakes++;
+        const ww = byId[a.dataset.id]; SES.wrongWords.add(ww);
+        // the confused word comes back later as a normal question
+        SES.queue.splice(Math.min(SES.queue.length, 2), 0, { t: "l2r", w: ww, retry: true });
+        [a, c].forEach(x => { x.classList.remove("sel"); x.classList.add("wrong", "shake"); setTimeout(() => x.classList.remove("wrong", "shake"), 400); });
+      }
+      sel = { l: null, r: null };
+      if (!left_n) setTimeout(() => {
+        SES.answered++; SES.done++; if (!errs) SES.firstTry++;
+        const foot = $("#foot"); foot.className = "s-foot ok";
+        foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${IC.check}</div><div><b>${errs ? "Все пары найдены" : "Отлично"}</b><div class="ans">${errs ? "Перепутанные слова ещё встретятся" : "Без ошибок"}</div></div></div><button class="btn" id="contBtn">Дальше</button></div>`;
+        $("#contBtn").onclick = nextStep; $("#contBtn").focus({ preventScroll: true });
+      }, 300);
+    }
+  });
+}
+function finish() {
+  SES.finished = true;
+  const perfect = SES.mistakes === 0;
+  const xp = 10 + (perfect ? 5 : 0);
+  const firstToday = addXp(xp);
+  if (SES.mode === "lesson") {
+    const k = lessonKey(SES.ui, SES.li), prev = S.lessons[k];
+    S.lessons[k] = { n: (prev ? prev.n : 0) + 1, at: Date.now() };
+    SES.words.forEach(w => { if (!S.words[w.id]) mark(w, true); });
+    save();
+  }
+  const acc = SES.answered ? Math.round(SES.firstTry / SES.answered * 100) : 100;
+  const sec = Math.round((Date.now() - SES.t0) / 1000);
+  const tm = sec >= 60 ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") : sec + " с";
+  const st = streak();
+  const wrong = [...SES.wrongWords];
+  const nx = nextLesson();
+  const isLesson = SES.mode === "lesson";
+  sessionFrame(`<div class="done"><div class="seal">${IC.check}</div>
+    <h2>${isLesson ? "Урок пройден" : "Повторение завершено"}</h2>
+    <p>${esc(SES.title)}</p>
+    <div class="done-stats">
+      <div class="card stat"><b style="color:var(--accent)">+${xp}</b><span>XP${perfect ? " · без ошибок" : ""}</span></div>
+      <div class="card stat"><b>${acc}%</b><span>точность</span></div>
+      <div class="card stat"><b>${tm}</b><span>время</span></div>
+    </div>
+    ${firstToday ? `<div class="streak-note">${IC.flame} Серия: ${st} ${plural(st, "день", "дня", "дней")}</div>` : `<div class="muted">Сегодня: ${todayXp()} / ${S.settings.goal} XP</div>`}
+    ${wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:4px 0"><div class="hint" style="padding:10px 14px 4px">Слова с ошибками — попадут в повторение</div>${wrong.map(w => `<div class="row"><div class="t"><div>${latHTML(w)}</div><div class="ru">${esc(w.rus)}</div></div>${speakBtn(w)}</div>`).join("")}</div>` : ""}
+    </div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="row2">${isLesson && nx ? `<button class="btn ghost" id="homeBtn">На главную</button><button class="btn" id="contBtn">Следующий урок</button>` : `<button class="btn" id="homeBtn">Продолжить</button>`}</div></div></div>`);
+  $("#homeBtn").onclick = () => closeSession(true);
+  const c = $("#contBtn");
+  if (c) { c.onclick = () => { closeSession(true); startLesson(nx[0], nx[1]); }; c.focus({ preventScroll: true }); } else $("#homeBtn").focus({ preventScroll: true });
+}
+
+/* ---------- flashcards (old mode, kept) ---------- */
+function startFlash(list) {
+  if (!list.length) return;
+  const order = shuffle(list).sort((a, b) => ws(a).s - ws(b).s);
+  let i = 0, shown = false, known = 0;
+  SES = { mode: "flash", queue: [], done: 0, words: order, finished: false };
+  $("#session").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  const draw = () => {
+    if (i >= order.length) { SES.finished = true; closeSession(true); toast(`Карточки: знаю ${known} из ${order.length}`); return; }
+    const w = order[i];
+    SES.done = i; SES.queue = new Array(order.length - i);
+    sessionFrame(`<div class="flash"><div class="q-kind" style="text-align:center">Карточка ${i + 1} из ${order.length}</div>
+      <div class="card fcard" id="fc"><div class="lat">${esc(w.head)}</div>${w.gram ? `<div class="gram">${esc(w.gram)}</div>` : ""}
+      ${shown ? `<div class="ru">${esc(w.rus)}</div>${w.note ? `<div class="hint">${esc(w.note)}</div>` : ""}` : `<div class="tap">нажмите, чтобы увидеть перевод</div>`}${speakBtn(w, "speak")}</div></div>`,
+      `<div class="s-foot" id="foot"><div class="in">${shown ? `<div class="row2"><button class="btn ghost" id="fNo" style="flex:1">Не знаю</button><button class="btn" id="fYes" style="flex:1">Знаю</button></div>` : `<button class="btn ghost" id="fShow">Показать перевод</button>`}</div></div>`);
+    const reveal = () => { if (!shown) { shown = true; draw(); if (S.settings.autoplay) speak(w); } };
+    $("#fc").onclick = reveal;
+    if (!shown) $("#fShow").onclick = reveal;
+    else {
+      $("#fYes").onclick = () => { mark(w, true); save(); known++; i++; shown = false; draw(); };
+      $("#fNo").onclick = () => { mark(w, false); save(); i++; shown = false; draw(); };
+    }
+  };
+  draw();
+}
+
+/* ---------- keyboard (tablets with keyboards, desktops) ---------- */
+document.addEventListener("keydown", e => {
+  if (!SES || $("#session").classList.contains("hidden")) return;
+  if (e.target && e.target.tagName === "INPUT") return;
+  if (e.key === "Escape") { closeSession(false); return; }
+  if (/^[1-5]$/.test(e.key)) { const b = document.querySelectorAll("#opts .opt")[+e.key - 1]; if (b) { b.click(); e.preventDefault(); } return; }
+  if (e.key === "Enter" || e.key === " ") {
+    const b = $("#contBtn") || $("#fShow") || $("#fYes");
+    if (b && document.activeElement !== b) { b.click(); e.preventDefault(); }
+  }
+});
+
+/* ---------- PWA: service worker (offline cache + updates) ---------- */
+if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
+  window.addEventListener("load", () => {
+    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    // A new version took over: reload when it is safe (not in the middle of a lesson).
+    let pending = false, reloaded = false;
+    const reloadNow = () => { if (reloaded) return; reloaded = true; try { save(); } catch (e) {} location.reload(); };
+    const tryReload = () => { if (pending && !document.querySelector(".session")) reloadNow(); };
+    navigator.serviceWorker.addEventListener("controllerchange", () => { if (!hadController) return; pending = true; tryReload(); });
+    document.addEventListener("visibilitychange", () => { if (pending && document.hidden) reloadNow(); });
+    document.addEventListener("click", () => setTimeout(tryReload, 0));
+  });
+}
+const hadController = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
+
+document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
+load(); applyTheme(); render();
+</script>
+</body>
+</html>
