@@ -418,10 +418,16 @@ function speak(w) {
   try {
     speechSynthesis.cancel();
     const u = new SpeechSynthesisUtterance(speakText(w));
-    let v = TTS.voices.find(v => v.voiceURI === S.settings.voice) || TTS.voices[0];
-    if (v) { u.voice = v; u.lang = v.lang; } else u.lang = "it-IT";
+    if (!TTS.all || !TTS.all.length) pickVoices();
+    const all = TTS.all || [];
+    let v = all.find(v => v.voiceURI === S.settings.voice) || TTS.voices[0]
+      || all.find(v => /^ru/i.test(v.lang || "")) || all.find(v => v.default) || all[0];
+    if (v) { u.voice = v; u.lang = v.lang; }
     u.rate = S.settings.rate || 0.85;
-    speechSynthesis.speak(u);
+    u.volume = 1;
+    if (speechSynthesis.paused) speechSynthesis.resume();
+    // Chrome Android sometimes drops speak() right after cancel()
+    setTimeout(() => speechSynthesis.speak(u), 60);
   } catch (e) {}
 }
 function speakBtn(w, cls = "icon-btn") {
@@ -583,7 +589,7 @@ function renderStats() {
   const days = []; for (let i = 6; i >= 0; i--) days.push(addDays(new Date(), -i));
   const mx = Math.max(S.settings.goal, ...days.map(d => S.days[dayKey(d)] || 0));
   const wd = ["вс", "пн", "вт", "ср", "чт", "пт", "сб"];
-  const voices = TTS.ok ? (TTS.voices.length ? TTS.voices : (TTS.all || [])) : [];
+  const voices = TTS.ok ? (TTS.all || []) : [];
   let h = `<div class="stats-layout"><div>
     <h2 class="sec">Итоги</h2>
     <div class="stat-grid">
@@ -600,7 +606,7 @@ function renderStats() {
   </div><div>
     <h2 class="sec">Настройки</h2>
     <div class="card settings">
-      <div class="set"><label for="sAudio">Озвучка латыни<small>${TTS.ok ? (TTS.voices.length ? "Голос: " + esc(TTS.voices[0].name) : "Нет итальянского голоса — будет голос по умолчанию") : "Браузер не поддерживает озвучку"}</small></label>
+      <div class="set"><label for="sAudio">Озвучка латыни<small>${TTS.ok ? (TTS.voices.length ? "Голос: " + esc(TTS.voices[0].name) : "Нет итальянского голоса — читаю голосом по умолчанию. Лучше установить Italiano в настройках синтеза речи") : "Браузер не поддерживает озвучку"}</small></label>
         <span class="switch"><input type="checkbox" id="sAudio" ${S.settings.audio ? "checked" : ""} ${TTS.ok ? "" : "disabled"}><span></span></span></div>
       <div class="set"><label for="sAuto">Произносить автоматически<small>После ответа и на новых словах</small></label>
         <span class="switch"><input type="checkbox" id="sAuto" ${S.settings.autoplay ? "checked" : ""} ${TTS.ok ? "" : "disabled"}><span></span></span></div>
@@ -915,6 +921,7 @@ document.addEventListener("keydown", e => {
 });
 
 /* ---------- PWA: service worker (offline cache + updates) ---------- */
+const hadController = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
 if ("serviceWorker" in navigator && (location.protocol === "https:" || location.hostname === "localhost" || location.hostname === "127.0.0.1")) {
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("./sw.js").catch(() => {});
@@ -927,7 +934,6 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
     document.addEventListener("click", () => setTimeout(tryReload, 0));
   });
 }
-const hadController = !!(navigator.serviceWorker && navigator.serviceWorker.controller);
 
 document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
 load(); applyTheme(); render();
