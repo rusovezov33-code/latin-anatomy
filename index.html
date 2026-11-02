@@ -357,7 +357,7 @@ function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { storageO
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } CS.queue(k); }
 /* ---------- Telegram CloudStorage sync (only inside Telegram WebApp ≥ 6.9) ---------- */
 const CS = (() => {
-  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest"];
+  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest", "latAnat.krPrep"];
   const CHUNK = 4000;
   const dirty = new Set(); let timer = null, ready = false;
   const tg = () => { try { return window.Telegram && window.Telegram.WebApp; } catch (e) { return null; } };
@@ -399,6 +399,11 @@ const CS = (() => {
         const c = C[u][sh], o = out[u] && out[u][sh];
         if (c && c.n && (!o || c.ok / c.n > o.ok / o.n)) { (out[u] = out[u] || {})[sh] = c; ch = true; }
       }
+      return ch ? JSON.stringify(out) : null;
+    }
+    if (k === "latAnat.krPrep") {
+      const out = Object.assign({}, L); let ch = false;
+      for (const id in C) { const c = C[id], o = out[id]; if (c && c.n && (!o || !o.n || c.ok / c.n > o.ok / o.n)) { out[id] = c; ch = true; } }
       return ch ? JSON.stringify(out) : null;
     }
     return null;
@@ -661,6 +666,7 @@ function renderLearn() {
         ${due ? `<button class="btn" id="goReview">${IC.repeat} Повторить ${dueTxt}</button>` : ""}
         ${nx ? `<button class="btn ${due ? "ghost" : ""}" id="goNext">${IC.play} ${due ? "Новый урок" : "Продолжить"}</button>` : ""}
         ${due ? "" : `<button class="btn ghost" id="goReview" ${seenN ? "" : "disabled"}>${IC.repeat} Повторить слабые слова</button>`}
+        <button class="btn" id="goKr">🎯 Подготовка к КР</button>
         <button class="btn ghost" id="goWritten">✍ Письменно (без вариантов) · словосочетания к КР</button>
       </div>
     </div>
@@ -682,7 +688,7 @@ function renderLearn() {
   h += `</div></div></div>`;
   $("#tab-learn").innerHTML = h;
   const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
-  const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten;
+  const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten; const gk = $("#goKr"); if (gk) gk.onclick = startKr;
   $("#tab-learn").querySelectorAll("[data-ft]").forEach(b => b.onclick = () => startFinal(+b.dataset.ft));
   $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
 }
@@ -1252,6 +1258,138 @@ function ftCheck(ins) {
   const r = $("#ftRetry"); if (r) r.onclick = () => { FT.rows = FT.wrong; FT.checked = false; FT.retry = true; ftShow(); };
   const nx = $("#ftNext"); if (nx) nx.onclick = () => { FT.sheet = "rl"; FT.rows = UNITS[FT.ui].list.slice(); FT.checked = false; FT.retry = false; ftShow(); };
   const d = $("#ftDone"); if (d) d.onclick = () => { FT = null; closeSession(true); };
+}
+
+/* ---------- 🎯 Подготовка к КР (по объявлению преподавателя; материал — только пособие Провоторова и др., РУДН 2021) ---------- */
+const KR_KEY = "latAnat.krPrep"; // { sheetId: {ok, n} } — best full-sheet score
+// row: q = вопрос, a = принятые ответы ("|"), t = lat | rus | gram, p = страница пособия, w = ⚠ пометка
+const KR_SRC = "Провоторова Е.А., Рыбакова И.В., Уварова М.А. Латинский язык. РУДН, 2021";
+const KR = [
+ { id: "tr-lr", title: "1а. Перевод: латынь → русский", hint: "Переведите словосочетание на русский.", t: "rus", rows: [
+  ["arcus vertebrae", "дуга позвонка", 11], ["crista capitis costae", "гребень головки ребра", 11], ["arteria genus", "коленная артерия|артерия колена", 11],
+  ["vertebra cervicalis", "шейный позвонок", 22], ["facies intestinalis uteri", "кишечная поверхность матки", 22], ["basis cranii externa", "наружное основание черепа", 22],
+  ["corpus ossis hyoidei", "тело подъязычной кости", 22], ["processus articularis superior", "верхний суставной отросток", 22], ["vena cordis magna", "большая вена сердца", 31],
+  ["nervus auricularis magnus", "большой ушной нерв", 31], ["sulcus coronarius", "венечная борозда", 70], ["processus coronoideus", "венечный отросток", 70],
+  ["cervix dentis", "шейка зуба", 73], ["hiatus sacralis", "крестцовая щель", 73], ["rima oris", "ротовая щель", 73]] },
+ { id: "tr-rl", title: "1б. Перевод: русский → латынь", hint: "Напишите латинское словосочетание (окончания проверяются строго).", t: "lat", rows: [
+  ["малая подкожная вена", "vena saphena parva", 31], ["большая ягодичная мышца", "musculus gluteus maximus", 32], ["венечный шов", "sutura coronalis", 70],
+  ["венечная ямка", "fossa coronoidea", 70], ["передняя крестообразная связка", "ligamentum cruciatum anterius", 71], ["подъязычный нерв", "nervus hypoglossus", 72],
+  ["отверстие аорты", "ostium aortae", 72], ["отверстие матки", "ostium uteri", 72], ["вкусовое отверстие", "porus gustatorius", 72],
+  ["заднее носовое отверстие", "apertura nasalis posterior", 72], ["шейка матки", "cervix uteri", 73], ["полулунная расщелина", "hiatus semilunaris", 73],
+  ["щель преддверия", "rima vestibuli", 73], ["центральная ямка", "fovea centralis", 73], ["рёберная ямка", "fovea costalis", 74]] },
+ { id: "gram", title: "2. Грамматическая форма", hint: "Определите род, число, падеж и склонение. Если форма совпадает у нескольких падежей — подойдёт любой верный вариант. В курсе изучаются 2 падежа: Nom. и Gen. (с. 10).", t: "gram", rows: [
+  ["alarum (ala, ae f)", "f pl gen 1", 13], ["alae (ala, ae f)", "f sg gen 1|f pl nom 1", 13], ["nervorum (nervus, i m)", "m pl gen 2", 15], ["tubercula (tuberculum, i n)", "n pl nom 2", 15],
+  ["organi (organon, i n)", "n sg gen 2", 15], ["marginis (margo, inis m)", "m sg gen 3", 43], ["regiones (regio, onis f)", "f pl nom 3", 43], ["dentium (dens, dentis m)", "m pl gen 3", 43],
+  ["partis (pars, partis f)", "f sg gen 3", 43], ["corpora (corpus, oris n)", "n pl nom 3", 44], ["ossium (os, ossis n)", "n pl gen 3", 44], ["canales (canalis, is m)", "m pl nom 3", 44],
+  ["retia (rete, is n)", "n pl nom 3", 44], ["aurium (auris, is f)", "f pl gen 3", 44], ["vasorum (vas, vasis n)", "n pl gen 3", 44], ["ductuum (ductus, us m)", "m pl gen 4", 53],
+  ["ductus (ductus, us m)", "m sg nom 4|m sg gen 4|m pl nom 4", 53], ["cornua (cornu, us n)", "n pl nom 4", 53], ["faciei (facies, ei f)", "f sg gen 5", 53], ["facierum (facies, ei f)", "f pl gen 5", 53]] },
+ { id: "decl", title: "3. Склонение словосочетаний", hint: "Поставьте словосочетание в нужную форму (Nom./Gen., ед. и мн. ч. — в пособии изучаются эти 2 падежа).", t: "lat", rows: [] },
+ { id: "pref", title: "4а. Приставки", hint: "Впишите только приставку (например: supra).", t: "lat", rows: [
+  ["Выделите приставку: intracranialis", "intra", 64], ["Выделите приставку: intertubercularis", "inter", 64], ["Выделите приставку: interglutealis", "inter", 64],
+  ["Выделите приставку: epicondylaris", "epi", 64], ["Выделите приставку: extraperitonealis", "extra", 64], ["Выделите приставку: subcostalis", "sub", 64],
+  ["Выделите приставку: retroinguinalis", "retro", 64], ["Выделите приставку: infraorbitalis", "infra", 64], ["Выделите приставку: supraacetabularis", "supra", 64],
+  ["Выделите приставку: presulcalis", "pre|prae", 64],
+  ["Межмыщелковый — …condylaris", "inter", 64], ["Межверхнечелюстной — …maxillaris", "inter", 64], ["Внутричерепной — …cranialis", "intra", 64],
+  ["Околопривратниковый — …pyloricus", "juxta|para", 64, "в пособии обе приставки (juxta-, para-) значат «около»; принимаются обе"],
+  ["Приводящий — …ductor", "ad", 65], ["Вокругсердечный — …cardialis", "peri", 65], ["Надпочечный — …renalis", "supra", 65], ["Внутрисухожильный — …tendineus", "intra", 65],
+  ["Занижнечелюстной — …mandibularis", "retro", 65], ["Надшиловидный — …styloideus", "supra", 65], ["Предкрестцовый — …sacralis", "pre|prae", 65]] },
+ { id: "suf", title: "4б. Суффиксы", hint: "Образуйте слово (словарная форма м. р. / Nom. Sg.) или впишите суффикс без окончания (например: al).", t: "lat", rows: [
+  ["nasus, i m (нос) → «носовой»", "nasalis", 59], ["clavicula, ae f (ключица) → «ключичный»", "clavicularis", 59], ["palatum, i n (нёбо) → «нёбный»", "palatinus", 59],
+  ["maxilla, ae f → «верхнечелюстной»", "maxillaris", 29], ["ulna, ae f → «локтевой»", "ulnaris", 29], ["lobus, i m → «долевой»", "lobaris", 29],
+  ["cauda, ae f (хвост) → «хвостатый»", "caudatus", 59], ["squama, ae f (чешуя) → «чешуйчатый»", "squamosus", 59], ["crux, crucis f (крест) → «крестообразный»", "cruciformis", 59],
+  ["lac, lactis n (молоко) → «млечный, несущий молоко»", "lactifer", 60], ["corona, ae f (венок) → «венечный»", "coronarius", 60], ["ovum, i n (яйцо) → «яичник»", "ovarium", 60],
+  ["cartilago, inis f (хрящ) → «хрящевой»", "cartilagineus", 59],
+  ["caput, itis n (голова) → «головка»", "capitulum", 57], ["fovea, ae f (ямка) → «ямочка»", "foveola", 57], ["canalis, is m (канал) → «каналец»", "canaliculus", 57],
+  ["lamina, ae f → «пластинка (меньшего размера)»", "lamella", 57], ["flecto (гнуть) → «сгибатель»", "flexor", 58], ["flecto (гнуть) → «сгибание»", "flexio", 58], ["flecto (гнуть) → «изгиб»", "flexura", 58],
+  ["Суффикс в слове oesophageus", "e", 60], ["Суффикс в слове cranialis", "al", 60], ["Суффикс в слове scapularis", "ar", 60], ["Суффикс в слове pyloricus", "ic", 60],
+  ["Суффикс в слове uterinus", "in", 60], ["Суффикс в слове venosus", "os", 60]] },
+ { id: "abbr", title: "5. Сокращения", hint: "Напишите полностью (окончания строго). Сокращения — только анатомические (тема 9, с. 67–68).", t: "lat", rows: [
+  ["a.", "arteria", 68], ["aa.", "arteriae", 68], ["b.", "bursa", 68], ["fasc.", "fasciculus", 68], ["for.", "foramen", 68], ["forr.", "foramina", 68],
+  ["gangl.", "ganglion", 68], ["gl.", "glandula", 68], ["gll.", "glandulae", 68], ["lam.", "lamina", 68], ["lig.", "ligamentum", 68], ["ligg.", "ligamenta", 68],
+  ["m.", "musculus", 68], ["mm.", "musculi", 68], ["n.", "nervus", 68], ["nn.", "nervi", 68], ["nucl.", "nucleus", 68], ["r.", "ramus", 68], ["rr.", "rami", 68],
+  ["reg.", "regio", 68], ["regg.", "regiones", 68], ["seg.", "segmentum", 68], ["sul.", "sulcus", 68], ["sut.", "sutura", 68], ["tr.", "tractus", 68],
+  ["tun.", "tunica", 68], ["vag.", "vagina", 68], ["v.", "vena", 68], ["vv.", "venae", 68],
+  ["n. transversus colli", "nervus transversus colli", 68], ["lig. teres hepatis", "ligamentum teres hepatis", 68], ["for. venae cavae", "foramen venae cavae", 68],
+  ["m. sphincter ani externus", "musculus sphincter ani externus", 68], ["v. interventricularis anterior", "vena interventricularis anterior", 68],
+  ["gangl. pterygopalatinum", "ganglion pterygopalatinum", 68], ["regg. abdominis", "regiones abdominis", 69], ["nn. temporales profundi", "nervi temporales profundi", 69],
+  ["vv. dorsales linguae", "venae dorsales linguae", 69], ["sull. paracolici", "sulci paracolici", 69]] }
+];
+// 3. склонение: [Nom.Sg., перевод, Gen.Sg., Nom.Pl., Gen.Pl., стр. (словосочетание; парадигмы — с. 13, 15, 22–24, 29, 43–44, 53)]
+[["vertebra cervicalis", "шейный позвонок", "vertebrae cervicalis", "vertebrae cervicales", "vertebrarum cervicalium", 22],
+ ["processus articularis", "суставной отросток", "processus articularis", "processus articulares", "processuum articularium", 22],
+ ["nervus auricularis", "ушной нерв", "nervi auricularis", "nervi auriculares", "nervorum auricularium", 31],
+ ["sulcus coronarius", "венечная борозда", "sulci coronarii", "sulci coronarii", "sulcorum coronariorum", 70],
+ ["arteria coronaria", "венечная артерия", "arteriae coronariae", "arteriae coronariae", "arteriarum coronariarum", 70],
+ ["ligamentum cruciatum", "крестообразная связка", "ligamenti cruciati", "ligamenta cruciata", "ligamentorum cruciatorum", 70],
+ ["pars cruciformis", "крестообразная часть", "partis cruciformis", "partes cruciformes", "partium cruciformium", 71],
+ ["os hyoideum", "подъязычная кость", "ossis hyoidei", "ossa hyoidea", "ossium hyoideorum", 71],
+ ["fovea centralis", "центральная ямка", "foveae centralis", "foveae centrales", "fovearum centralium", 73],
+ ["facies articularis", "суставная поверхность", "faciei articularis", "facies articulares", "facierum articularium", 74]
+].forEach(([l, r, gs, np, gp, p]) => KR[3].rows.push([`${l} (${r}) → Gen. Sg.`, gs, p], [`${l} → Nom. Pl.`, np, p], [`${l} → Gen. Pl.`, gp, p]));
+const KR_G = { g: [["m", "m — мужской"], ["f", "f — женский"], ["n", "n — средний"]], n: [["sg", "Sing. — ед."], ["pl", "Plur. — мн."]], c: [["nom", "Nom."], ["gen", "Gen."]], d: [["1", "1"], ["2", "2"], ["3", "3"], ["4", "4"], ["5", "5"]] };
+let KT = null;
+function krBest() { try { return JSON.parse(lsGet(KR_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function krSaveBest(id, ok, n) { const b = krBest(), o = b[id]; if (!o || ok / n > o.ok / o.n) { b[id] = { ok, n }; lsSet(KR_KEY, JSON.stringify(b)); } }
+function krSheet(id) { return KR.find(s => s.id === id); }
+function krRowOk(sh, r, val) {
+  const alts = r[1].split("|");
+  if (sh.t === "rus") return alts.some(a => ftRusOk(a, val));
+  if (sh.t === "gram") return alts.includes(val);
+  const v = norm(val); return !!v && alts.some(a => norm(a) === v); // case/spaces/macrons tolerant, endings strict
+}
+function krFrame(title, body, foot) {
+  $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button><div class="ft-title">🎯 ${esc(title)}</div></div>
+    <div class="s-body ft-body">${body}</div><div class="s-foot" id="foot"><div class="in">${foot}</div></div>`;
+  $("#session").classList.remove("hidden"); $("#session").scrollTop = 0; const sb = $("#session .s-body"); if (sb) sb.scrollTop = 0;
+  $("#sClose").onclick = () => { if (KT && KT.sh && !KT.checked && [...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Выйти? Ответы не сохранятся.")) return; KT = null; closeSession(true); };
+}
+function startKr() { KT = { sh: null }; document.body.style.overflow = "hidden"; krMenu(); }
+function krMenu() {
+  KT = { sh: null }; const b = krBest();
+  const list = KR.map(s => `<button class="btn ghost kr-sheet" data-kr="${s.id}" style="width:100%;justify-content:space-between;margin:6px 0"><span>${esc(s.title)} · ${s.rows.length}</span><span class="muted">${b[s.id] ? `лучший: ${b[s.id].ok}/${b[s.id].n}` : "—"}</span></button>`).join("");
+  krFrame("Подготовка к КР", `<h2 class="ft-h">Подготовка к контрольной</h2><div class="hint">Задания по объявлению преподавателя: перевод словосочетаний, грамматическая форма, склонение, приставки/суффиксы, сокращения. Весь материал — из пособия: ${esc(KR_SRC)} (номер страницы у каждой строки).</div>${list}`,
+    `<button class="btn" id="krHome">На главную</button>`);
+  document.querySelectorAll("[data-kr]").forEach(x => x.onclick = () => krStart(x.dataset.kr));
+  $("#krHome").onclick = () => { KT = null; closeSession(true); };
+}
+function krStart(id, rows) { const sh = krSheet(id); KT = { sh, rows: rows || sh.rows.slice(), retry: !!rows, checked: false }; krShow(); }
+function krShow() {
+  const sh = KT.sh, g = sh.t === "gram";
+  const sel = (i, k, lbl) => `<select class="ft-in kr-sel" data-i="${i}" data-k="${k}" aria-label="${lbl} ${i + 1}"><option value="">${lbl}</option>${KR_G[k].map(([v, t]) => `<option value="${v}">${t}</option>`).join("")}</select>`;
+  const rows = KT.rows.map((r, i) => `<div class="ft-row" id="krr${i}"><div class="ft-q ${sh.t === "rus" || g ? "lat" : ""}">${esc(r[0])}<div class="muted" style="font-size:.75rem;font-weight:400">с. ${r[2]}${r[3] ? ` · ⚠ ${esc(r[3])}` : ""}</div></div>
+    <div class="ft-a">${g ? `<div class="kr-g" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:4px">${sel(i, "g", "род")}${sel(i, "n", "число")}${sel(i, "c", "падеж")}${sel(i, "d", "скл.")}</div>`
+      : `<input class="ft-in" data-i="${i}" type="text" ${sh.t === "rus" ? 'lang="ru"' : 'lang="la"'} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Ответ ${i + 1}">`}<div class="ft-fix"></div></div></div>`).join("");
+  krFrame(sh.title, `<h2 class="ft-h">${esc(sh.title)}${KT.retry ? " · ошибки" : ""}</h2><div class="hint">${esc(sh.hint)} ${KT.rows.length} ${plural(KT.rows.length, "строка", "строки", "строк")}; лист проверяется целиком.</div><div class="card ft-sheet">${rows}</div>`,
+    `<div class="row2"><button class="btn ghost" id="krBack">К списку</button><button class="btn" id="krSend">Отправить на проверку</button></div>`);
+  const ins = [...document.querySelectorAll("#session input.ft-in")];
+  ins.forEach((inp, i) => inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (ins[i + 1]) ins[i + 1].focus(); else inp.blur(); } });
+  $("#krBack").onclick = () => { if ([...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Вернуться? Ответы не сохранятся.")) return; krMenu(); };
+  $("#krSend").onclick = () => {
+    const vals = krVals(), empty = vals.filter(v => g ? v.split(" ").some(x => !x) : !v.trim()).length;
+    if (empty && !confirm(`Незаполненных строк: ${empty}. Всё равно отправить?`)) return;
+    krCheck(vals);
+  };
+}
+function krVals() {
+  if (KT.sh.t !== "gram") return [...document.querySelectorAll("#session input.ft-in")].map(i => i.value);
+  return KT.rows.map((_, i) => ["g", "n", "c", "d"].map(k => document.querySelector(`.kr-sel[data-i="${i}"][data-k="${k}"]`).value).join(" "));
+}
+function krGramTxt(a) { return a.split("|").map(p => { const [g, n, c, d] = p.split(" "); return `${g}, ${n === "sg" ? "Sing." : "Plur."}, ${c === "nom" ? "Nom." : "Gen."}, ${d} скл.`; }).join(" или "); }
+function krCheck(vals) {
+  const sh = KT.sh, wrong = []; let ok = 0;
+  vals.forEach((v, i) => {
+    const r = KT.rows[i], good = krRowOk(sh, r, v), row = $("#krr" + i);
+    row.classList.add(good ? "ok" : "bad"); row.querySelectorAll(".ft-in").forEach(x => { x.readOnly = true; x.disabled = sh.t === "gram"; });
+    if (good) ok++; else { wrong.push(r); row.querySelector(".ft-fix").innerHTML = `${IC.x} <b>${esc(sh.t === "gram" ? krGramTxt(r[1]) : r[1].split("|").join(" / "))}</b>`; }
+  });
+  KT.checked = true; KT.wrong = wrong; const n = KT.rows.length;
+  if (!KT.retry) krSaveBest(sh.id, ok, n);
+  const best = krBest()[sh.id];
+  $("#session .ft-h").insertAdjacentHTML("afterend", `<div class="card ft-score ${ok === n ? "ok" : ""}"><b>${ok} / ${n}</b><span>${ok === n ? "Без ошибок!" : `ошибок: ${n - ok}`}${best ? ` · лучший результат: ${best.ok}/${best.n}` : ""}</span></div>`);
+  $("#foot .in").innerHTML = `<div class="row2">${wrong.length ? `<button class="btn ghost" id="krRetry">${IC.repeat} Повторить ошибки</button>` : ""}<button class="btn" id="krList">К списку заданий</button></div>`;
+  $("#session .s-body").scrollTop = 0; $("#session").scrollTop = 0;
+  const rr = $("#krRetry"); if (rr) rr.onclick = () => krStart(sh.id, KT.wrong);
+  $("#krList").onclick = krMenu;
 }
 
 /* ---------- flashcards (old mode, kept) ---------- */
