@@ -271,6 +271,21 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 .app{padding-left:var(--safe-l);padding-right:var(--safe-r)}
 .tabbar,.session{padding-left:var(--safe-l);padding-right:var(--safe-r)}
 .toast{max-width:calc(90vw - var(--safe-l) - var(--safe-r))}
+.ft-btn{margin-top:12px;width:100%;justify-content:center;flex-wrap:wrap}
+.ft-title{flex:1;font-weight:650;font-size:.95rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ft-body{display:block;max-width:760px;width:100%;margin:0 auto;padding:12px 14px 24px;overflow-y:auto;-webkit-overflow-scrolling:touch}
+.ft-h{font-size:1.1rem;margin:4px 0 6px}
+.ft-sheet{padding:0;margin-top:10px}
+.ft-row{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.1fr);gap:10px;align-items:start;padding:8px 12px;border-top:1px solid var(--line,rgba(127,127,127,.2))}
+.ft-row:first-child{border-top:0}
+.ft-q{padding-top:9px;word-break:break-word;font-size:.95rem}
+.ft-q.lat{color:var(--lat);font-weight:600}
+.ft-in{width:100%;box-sizing:border-box;font-size:16px;padding:9px 10px;border-radius:10px;border:1.5px solid var(--line,rgba(127,127,127,.35));background:var(--surface);color:inherit}
+.ft-row.ok .ft-in{border-color:var(--accent);background:var(--accent-soft)}
+.ft-row.bad .ft-in{border-color:var(--bad);background:var(--bad-soft)}
+.ft-fix{font-size:.88rem;color:var(--bad);margin-top:4px}.ft-fix:empty{display:none}.ft-fix .i{width:14px;height:14px;vertical-align:-2px}
+.ft-score{display:flex;gap:10px;align-items:baseline;padding:12px 14px;margin:8px 0;background:var(--bad-soft)}.ft-score.ok{background:var(--accent-soft)}.ft-score b{font-size:1.4rem;white-space:nowrap}
+@media (max-width:420px){.ft-row{grid-template-columns:1fr;gap:4px}.ft-q{padding-top:0}}
 </style>
 </head>
 <body>
@@ -586,12 +601,14 @@ function renderLearn() {
       const lbl = d ? (m ? ", выучен" : ", пройден, слова на повторении") : "";
       h += `<button class="lesson-dot ${d ? "passed" : ""} ${d && !m ? "learning" : ""} ${isNext ? "next" : ""}" data-l="${u.idx},${li}" title="Урок ${li + 1}${lbl}" aria-label="Урок ${li + 1}${lbl}">${d ? IC.check : li + 1}</button>`;
     });
-    h += `</div></div>`;
+    const fb = ftBest()[u.id] || {}, sc = k => fb[k] ? `${fb[k].ok}/${fb[k].n}` : "—";
+    h += `</div><button class="btn ghost sm ft-btn" data-ft="${u.idx}">✍ Итоговый тест · ${u.list.length} ${plural(u.list.length, "слово", "слова", "слов")}${fb.lr || fb.rl ? ` <span class="muted">(лат→рус ${sc("lr")}, рус→лат ${sc("rl")})</span>` : ""}</button></div>`;
   });
   h += `</div></div></div>`;
   $("#tab-learn").innerHTML = h;
   const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
   const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten;
+  $("#tab-learn").querySelectorAll("[data-ft]").forEach(b => b.onclick = () => startFinal(+b.dataset.ft));
   $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
 }
 
@@ -1096,6 +1113,70 @@ function wrFinish() {
     ${SES.wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:4px 0"><div class="hint" style="padding:10px 14px 4px">Были ошибки</div>${SES.wrong.map(x => `<div class="row"><div class="t"><div class="lat">${esc(x.lat)}</div><div class="ru">${esc(x.rus)}</div></div></div>`).join("")}</div>` : ""}</div>`,
     `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="homeBtn">Продолжить</button></div></div>`);
   $("#homeBtn").onclick = () => closeSession(true); $("#homeBtn").focus({ preventScroll: true });
+}
+
+/* ---------- final sheet test per unit ("Итоговый тест") ---------- */
+const FT_KEY = "latAnat.finalTest"; // { unitId: { lr: {ok, n}, rl: {ok, n} } } — best full-sheet score
+let FT = null;
+function ftBest() { try { return JSON.parse(lsGet(FT_KEY) || "{}") || {}; } catch (e) { return {}; } }
+function ftSaveBest(uid, sheet, ok, n) {
+  const b = ftBest(), u = b[uid] || (b[uid] = {}), o = u[sheet];
+  if (!o || ok / n > o.ok / o.n) { u[sheet] = { ok, n }; lsSet(FT_KEY, JSON.stringify(b)); }
+}
+function ruNorm(s) { return String(s).toLowerCase().replace(/ё/g, "е").replace(/[^a-zа-я0-9\s]/g, " ").replace(/\s+/g, " ").trim(); }
+// Russian: any comma/semicolon-separated meaning (with or without the bracketed part) or the whole string
+function ftRusOk(rus, val) {
+  const v = ruNorm(val); if (!v) return false;
+  const alts = new Set([ruNorm(rus), ruNorm(rus.replace(/\([^)]*\)/g, " "))]);
+  rus.split(/[;,]/).forEach(p => { alts.add(ruNorm(p)); alts.add(ruNorm(p.replace(/\([^)]*\)/g, " "))); });
+  alts.delete(""); return alts.has(v);
+}
+// Latin: exact form (endings matter); case, spaces, macrons/diacritics ignored; head word or full dictionary form
+function ftLatOk(w, val) {
+  const v = norm(val); if (!v) return false;
+  return v === norm(w.kind === "phrase" ? w.lat : w.head) || v === norm(w.lat);
+}
+function startFinal(ui) { FT = { ui, sheet: "lr", rows: UNITS[ui].list.slice(), checked: false, retry: false }; document.body.style.overflow = "hidden"; ftShow(); }
+function ftFrame(body, foot) {
+  $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button><div class="ft-title">${esc(UNITS[FT.ui].title)} · итоговый тест</div></div>
+    <div class="s-body ft-body">${body}</div><div class="s-foot" id="foot"><div class="in">${foot}</div></div>`;
+  $("#session").classList.remove("hidden"); $("#session").scrollTop = 0; const sb = $("#session .s-body"); if (sb) sb.scrollTop = 0;
+  $("#sClose").onclick = () => { if (FT && !FT.checked && [...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Выйти из теста? Ответы не сохранятся.")) return; FT = null; closeSession(true); };
+}
+function ftShow() {
+  const lr = FT.sheet === "lr";
+  const head = `<h2 class="ft-h">${lr ? "Лист 1 · латынь → русский" : "Лист 2 · русский → латынь"}${FT.retry ? " · ошибки" : ""}</h2>
+    <div class="hint">${FT.rows.length} ${plural(FT.rows.length, "строка", "строки", "строк")}. Заполните все поля и отправьте лист целиком.</div>`;
+  const rows = FT.rows.map((w, i) => `<div class="ft-row" id="ftr${i}"><div class="ft-q ${lr ? "lat" : ""}">${esc(lr ? w.lat : w.rus)}</div>
+    <div class="ft-a"><input class="ft-in" data-i="${i}" type="text" ${lr ? 'lang="ru"' : 'lang="la"'} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="${i < FT.rows.length - 1 ? "next" : "done"}" aria-label="Ответ ${i + 1}"><div class="ft-fix"></div></div></div>`).join("");
+  ftFrame(head + `<div class="card ft-sheet">${rows}</div>`, `<button class="btn" id="ftSend">Отправить на проверку</button>`);
+  const ins = [...document.querySelectorAll(".ft-in")];
+  ins.forEach((inp, i) => inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (ins[i + 1]) ins[i + 1].focus(); else inp.blur(); } });
+  $("#ftSend").onclick = () => {
+    const empty = ins.filter(i => !i.value.trim()).length;
+    if (empty && !confirm(`Пустых полей: ${empty}. Всё равно отправить?`)) return;
+    ftCheck(ins);
+  };
+}
+function ftCheck(ins) {
+  const lr = FT.sheet === "lr", wrong = [];
+  let ok = 0;
+  ins.forEach((inp, i) => {
+    const w = FT.rows[i], good = lr ? ftRusOk(w.rus, inp.value) : ftLatOk(w, inp.value);
+    const row = $("#ftr" + i); row.classList.add(good ? "ok" : "bad"); inp.readOnly = true;
+    if (good) ok++; else { wrong.push(w); row.querySelector(".ft-fix").innerHTML = `${IC.x} <b>${esc(lr ? w.rus : (w.kind === "phrase" ? w.lat : w.head))}</b>${lr ? "" : ` <span class="muted">(${esc(w.lat)})</span>`}`; }
+  });
+  FT.checked = true; FT.wrong = wrong;
+  const n = FT.rows.length;
+  if (!FT.retry) ftSaveBest(UNITS[FT.ui].id, FT.sheet, ok, n);
+  const best = (ftBest()[UNITS[FT.ui].id] || {})[FT.sheet];
+  $("#session .ft-h").insertAdjacentHTML("afterend", `<div class="card ft-score ${ok === n ? "ok" : ""}"><b>${ok} / ${n}</b><span>${ok === n ? "Без ошибок!" : `ошибок: ${n - ok}`}${best ? ` · лучший результат: ${best.ok}/${best.n}` : ""}</span></div>`);
+  $("#foot .in").innerHTML = `<div class="row2">${wrong.length ? `<button class="btn ghost" id="ftRetry">${IC.repeat} Повторить ошибки</button>` : ""}
+    ${lr ? `<button class="btn" id="ftNext">Дальше: русский → латынь</button>` : `<button class="btn" id="ftDone">Готово</button>`}</div>`;
+  $("#session .s-body").scrollTop = 0; $("#session").scrollTop = 0; window.scrollTo(0, 0);
+  const r = $("#ftRetry"); if (r) r.onclick = () => { FT.rows = FT.wrong; FT.checked = false; FT.retry = true; ftShow(); };
+  const nx = $("#ftNext"); if (nx) nx.onclick = () => { FT.sheet = "rl"; FT.rows = UNITS[FT.ui].list.slice(); FT.checked = false; FT.retry = false; ftShow(); };
+  const d = $("#ftDone"); if (d) d.onclick = () => { FT = null; closeSession(true); };
 }
 
 /* ---------- flashcards (old mode, kept) ---------- */
