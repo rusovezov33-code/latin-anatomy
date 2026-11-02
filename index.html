@@ -174,6 +174,7 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 .intro .nt{font-size:.92rem;color:var(--muted)}
 .type-wrap{display:grid;gap:10px}
 .type-in{width:100%;height:60px;border-radius:14px;border:2px solid var(--line);background:var(--surface);padding:0 16px;font-size:1.3rem;font-family:var(--serif);color:var(--lat);outline:none}
+.wr-bad{background:var(--bad-soft);color:var(--bad);border-radius:4px;padding:0 2px;font-weight:700;text-decoration:underline}
 .type-in:focus{border-color:var(--accent)}
 .type-in.right{border-color:var(--accent);background:var(--accent-soft)}
 .type-in.wrong{border-color:var(--bad);background:var(--bad-soft)}
@@ -570,6 +571,7 @@ function renderLearn() {
         ${due ? `<button class="btn" id="goReview">${IC.repeat} Повторить ${dueTxt}</button>` : ""}
         ${nx ? `<button class="btn ${due ? "ghost" : ""}" id="goNext">${IC.play} ${due ? "Новый урок" : "Продолжить"}</button>` : ""}
         ${due ? "" : `<button class="btn ghost" id="goReview" ${seenN ? "" : "disabled"}>${IC.repeat} Повторить слабые слова</button>`}
+        <button class="btn ghost" id="goWritten" ${seenN ? "" : "disabled"}>✍ Письменно (без вариантов)</button>
       </div>
     </div>
     ${storageOK ? "" : `<div class="card storage-warn">Браузер не даёт сохранять прогресс в этом режиме. Откройте файл в Chrome или Safari, а не во встроенном просмотрщике, или сохраняйте прогресс в файл во вкладке «Прогресс».</div>`}
@@ -589,7 +591,7 @@ function renderLearn() {
   h += `</div></div></div>`;
   $("#tab-learn").innerHTML = h;
   const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
-  const gr = $("#goReview"); if (gr) gr.onclick = startReview;
+  const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten;
   $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
 }
 
@@ -980,6 +982,96 @@ function finish() {
   $("#homeBtn").onclick = () => closeSession(true);
   const c = $("#contBtn");
   if (c) { c.onclick = () => { closeSession(true); startLesson(nx[0], nx[1]); }; c.focus({ preventScroll: true }); } else $("#homeBtn").focus({ preventScroll: true });
+}
+
+
+/* ---------- written review: type the Latin, no options; phrases first ---------- */
+// phrases = the app's own combinations (unit "Устойчивые сочетания") + examples from word notes ("fossa mandibularis — нижнечелюстная ямка", "musculus abductor")
+function writtenPool() {
+  const seen = WORDS.filter(w => ws(w).seen), ph = [], single = [], keys = new Set();
+  const addP = (lat, rus, w) => { const k = norm(lat); if (keys.has(k)) return; keys.add(k); ph.push({ lat, rus, w }); };
+  seen.forEach(w => {
+    if (w.kind === "phrase") addP(w.lat, w.rus, w);
+    else single.push({ lat: w.head, rus: w.rus, w, full: w.lat });
+    const m = w.note.match(/^([a-z ]+[a-z]) — ([^;:]+)$/i);
+    if (m && m[1].includes(" ")) addP(m[1], m[2].trim(), null);
+    else if (/^[a-z]+ [a-z]+$/i.test(w.note)) addP(w.note, w.rus, null);
+  });
+  return { ph, single };
+}
+function wrCheck(it, val) {
+  const v = norm(val).split(" "), t = norm(it.lat).split(" ");
+  if (v.join(" ") === t.join(" ")) return true;
+  if (it.full && norm(it.full).startsWith(v.join(" ")) && v.join(" ").startsWith(t.join(" "))) return true; // typed with grammar tail
+  return false;
+}
+// correct answer with the wrong part of each word highlighted (usually the ending)
+function wrDiff(it, val) {
+  const v = norm(val).split(" ").filter(Boolean), tl = it.lat.split(" ");
+  return tl.map((tw, i) => {
+    const a = norm(tw), b = v[i] || "";
+    if (a === b) return esc(tw);
+    let p = 0; while (p < a.length && p < b.length && a[p] === b[p]) p++;
+    if (p < 2) return `<mark class="wr-bad">${esc(tw)}</mark>`;
+    return esc(tw.slice(0, p)) + `<mark class="wr-bad">${esc(tw.slice(p)) || "∅"}</mark>`;
+  }).join(" ");
+}
+function startWritten() {
+  const { ph, single } = writtenPool();
+  if (!ph.length && !single.length) { toast("Сначала пройдите хотя бы один урок"); return; }
+  const N = 15, nP = Math.min(ph.length, single.length ? Math.round(N * 0.7) : N);
+  const wsort = a => a.sort((x, y) => (x.w ? ws(x.w).s : 9) - (y.w ? ws(y.w).s : 9));
+  let mus = 0; // the "musculus …" notes barely test endings: at most 3 per session
+  let items = shuffle(ph).filter(x => !/^musculus /.test(x.lat) || mus++ < 3).slice(0, nP);
+  items = items.concat(wsort(shuffle(single)).slice(0, N - items.length));
+  if (items.length < N && ph.length) items = items.concat(shuffle(ph).slice(0, Math.min(ph.length, N - items.length)));
+  SES = { mode: "written", title: "Письменное повторение", q: shuffle(items).map(x => Object.assign({ miss: 0 }, x)), done: 0, finished: false,
+    answered: 0, firstTry: 0, mistakes: 0, wrong: [], srsDone: new Set(), t0: Date.now() };
+  SES.queue = { get length() { return SES.q.length; } };
+  $("#session").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  wrShow();
+}
+function wrShow() {
+  if (!SES.q.length) return wrFinish();
+  const it = SES.q[0], isP = it.lat.includes(" ");
+  sessionFrame(`<div class="q-kind">Письменно · ${isP ? "словосочетание" : "слово"}${it.miss ? " · ещё раз" : ""}</div>
+    <h2 class="q-title">Напишите по-латыни</h2><div class="prompt"><span class="big ru">${esc(it.rus)}</span></div>
+    <div class="type-wrap"><input class="type-in" id="tin" type="text" lang="la" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done" placeholder="${isP ? "словосочетание" : "латинское слово"}">
+    <div class="hint">${isP ? "Следите за окончаниями: согласование и родительный падеж" : "Именительный падеж"}</div></div>`, footCheck());
+  const inp = $("#tin"), cb = $("#checkBtn");
+  setTimeout(() => inp.focus(), 60);
+  inp.oninput = () => cb.disabled = !inp.value.trim();
+  const check = skipped => {
+    if (inp.readOnly) return; inp.readOnly = true;
+    const ok = !skipped && wrCheck(it, inp.value);
+    inp.classList.add(ok ? "right" : "wrong"); inp.blur();
+    SES.answered++;
+    if (it.w) { const r = rec(it.w); ok ? r.ok++ : r.bad++; if (!SES.srsDone.has(it.w.id)) { srsAnswer(it.w, ok); SES.srsDone.add(it.w.id); } save(); }
+    SES.q.shift();
+    if (ok) { SES.done++; if (!it.miss) SES.firstTry++; }
+    else { SES.mistakes++; it.miss++; if (!SES.wrong.includes(it)) SES.wrong.push(it); SES.q.splice(Math.min(SES.q.length, 3), 0, it); }
+    const foot = $("#foot"); foot.className = "s-foot " + (ok ? "ok" : "bad");
+    const typed = inp.value.trim();
+    foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${ok ? IC.check : IC.x}</div><div><b>${ok ? "Верно" : skipped ? "Правильный ответ" : "Неверно"}</b>
+      <div class="ans"><span class="lat">${ok ? esc(it.lat) : wrDiff(it, skipped ? "" : typed)}</span> — ${esc(it.rus)}</div>
+      ${!ok && typed && !skipped ? `<div class="hint">Вы написали: ${esc(typed)} · повторится позже</div>` : !ok ? `<div class="hint">Повторится позже</div>` : ""}</div></div>
+      <button class="btn ${ok ? "" : "bad"}" id="contBtn">Дальше</button></div>`;
+    if (S.settings.autoplay && it.w) speak(it.w);
+    const c = $("#contBtn"); c.onclick = wrShow; c.focus({ preventScroll: true });
+  };
+  cb.onclick = () => check(false);
+  $("#skipBtn").onclick = () => check(true);
+  inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); e.stopPropagation(); check(false); } };
+}
+function wrFinish() {
+  SES.finished = true;
+  addXp(10 + (SES.mistakes ? 0 : 5));
+  const acc = SES.answered ? Math.round(SES.firstTry / SES.done * 100) : 100;
+  sessionFrame(`<div class="done"><div class="seal">${IC.check}</div><h2>Письменное повторение завершено</h2>
+    <div class="done-stats"><div class="card stat"><b>${SES.done}</b><span>написано</span></div><div class="card stat"><b>${acc}%</b><span>с первой попытки</span></div></div>
+    ${SES.wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:4px 0"><div class="hint" style="padding:10px 14px 4px">Были ошибки</div>${SES.wrong.map(x => `<div class="row"><div class="t"><div class="lat">${esc(x.lat)}</div><div class="ru">${esc(x.rus)}</div></div></div>`).join("")}</div>` : ""}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="homeBtn">Продолжить</button></div></div>`);
+  $("#homeBtn").onclick = () => closeSession(true); $("#homeBtn").focus({ preventScroll: true });
 }
 
 /* ---------- flashcards (old mode, kept) ---------- */
