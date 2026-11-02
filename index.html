@@ -166,6 +166,7 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 .opt.wrong{border-color:var(--bad);background:var(--bad-soft);box-shadow:0 3px 0 var(--bad)}
 .opt.dim{opacity:.5}
 .opts.locked .opt{pointer-events:none}
+.kl-t{border-collapse:collapse;margin:8px auto;font-size:.85rem}.kl-t th,.kl-t td{border:1px solid var(--line,#ccc);padding:4px 6px;text-align:center}.kl-th{text-align:left;font-size:.92rem;display:grid;gap:6px}.kl-th p{margin:0}.kl-parse{text-align:left;font-size:.9rem;display:grid;gap:4px;width:100%}.kl-intro .lat{font-size:1.7rem}.kl-parse .lat,.kl-th .lat{font-size:1.15rem!important;line-height:1.3}.kl-steps .btn{flex-direction:column;padding:8px 4px;font-size:.9rem;line-height:1.2;min-width:0}.kl-steps small{font-weight:400;font-size:.72rem;opacity:.85}.kr-card .kl-l{width:auto;display:inline-flex}
 .intro{padding:26px 22px;text-align:center;display:grid;gap:10px;justify-items:center;margin-top:8px}
 .intro .badge{font-size:.78rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);background:var(--accent-soft);padding:5px 10px;border-radius:999px}
 .intro .lat{font-size:2.3rem;line-height:1.15}
@@ -357,7 +358,7 @@ function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { storageO
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } CS.queue(k); }
 /* ---------- Telegram CloudStorage sync (only inside Telegram WebApp ≥ 6.9) ---------- */
 const CS = (() => {
-  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest", "latAnat.krPrep"];
+  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest", "latAnat.krPrep", "latAnat.krLearn"];
   const CHUNK = 4000;
   const dirty = new Set(); let timer = null, ready = false;
   const tg = () => { try { return window.Telegram && window.Telegram.WebApp; } catch (e) { return null; } };
@@ -404,6 +405,12 @@ const CS = (() => {
     if (k === "latAnat.krPrep") {
       const out = Object.assign({}, L); let ch = false;
       for (const id in C) { const c = C[id], o = out[id]; if (c && c.n && (!o || !o.n || c.ok / c.n > o.ok / o.n)) { out[id] = c; ch = true; } }
+      return ch ? JSON.stringify(out) : null;
+    }
+    if (k === "latAnat.krLearn") { // union: no lesson / item / training count is ever lost
+      const out = { l: Object.assign({}, L.l), it: Object.assign({}, L.it), tr: Object.assign({}, L.tr) }; let ch = false;
+      for (const g of ["l", "tr"]) for (const id in (C[g] || {})) { const c = C[g][id], o = out[g][id]; if (c && (!o || (c.n || 0) > (o.n || 0))) { out[g][id] = { n: Math.max(c.n || 0, o ? o.n || 0 : 0), at: Math.max(c.at || 0, o ? o.at || 0 : 0) }; ch = true; } }
+      for (const id in (C.it || {})) if (C.it[id] && !out.it[id]) { out.it[id] = 1; ch = true; }
       return ch ? JSON.stringify(out) : null;
     }
     return null;
@@ -1344,13 +1351,24 @@ function krFrame(title, body, foot) {
   $("#sClose").onclick = () => { if (KT && KT.sh && !KT.checked && [...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Выйти? Ответы не сохранятся.")) return; KT = null; closeSession(true); };
 }
 function startKr() { KT = { sh: null }; document.body.style.overflow = "hidden"; krMenu(); }
-function krMenu() {
-  KT = { sh: null }; const b = krBest();
-  const list = KR.map(s => `<button class="btn ghost kr-sheet" data-kr="${s.id}" style="width:100%;justify-content:space-between;margin:6px 0"><span>${esc(s.title)} · ${s.rows.length}</span><span class="muted">${b[s.id] ? `лучший: ${b[s.id].ok}/${b[s.id].n}` : "—"}</span></button>`).join("");
-  krFrame("Подготовка к КР", `<h2 class="ft-h">Подготовка к контрольной</h2><div class="hint">Задания по объявлению преподавателя: перевод словосочетаний, грамматическая форма, склонение, приставки/суффиксы, сокращения. Весь материал — из пособия: ${esc(KR_SRC)} (номер страницы у каждой строки).</div>${list}`,
+function krMenu(focus) {
+  KT = { sh: null }; KS = null; const b = krBest(), d = klGet(), D = klData();
+  const list = KR.map(s => {
+    const L = D[s.id].lessons, done = L.map((_, i) => !!d.l[s.id + "-" + i]), nd = done.filter(Boolean).length, nx = done.indexOf(false), tr = d.tr[s.id];
+    const lb = (i, ok) => `<button class="btn ghost kl-l" data-kl="${s.id}" data-li="${i}" style="margin:3px 4px 3px 0;padding:6px 10px;font-size:.85rem">${ok ? "✓ " : ""}${esc(L[i].title)}</button>`;
+    return `<div class="card kr-card" id="krc-${s.id}" style="padding:12px 14px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${esc(s.title)}</b><span class="muted" style="font-size:.8rem">${s.rows.length} ${plural(s.rows.length, "задание", "задания", "заданий")}</span></div>
+      <div class="kl-steps" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px">
+        <button class="btn ${nx >= 0 ? "" : "ghost"} kl-go" data-kl="${s.id}" data-li="${nx >= 0 ? nx : 0}">① Урок<br><small>${nd}/${L.length}${nx >= 0 ? "" : " ✓"}</small></button>
+        <button class="btn ${nx < 0 && !tr ? "" : "ghost"} kl-go" data-kl="${s.id}" data-li="-1">② Тренировка<br><small>${tr ? "пройдено: " + tr.n : "—"}</small></button>
+        <button class="btn ${nx < 0 && tr ? "" : "ghost"} kr-sheet" data-kr="${s.id}">③ Лист<br><small>${b[s.id] ? `лучший: ${b[s.id].ok}/${b[s.id].n}` : "—"}</small></button></div>
+      <div style="margin-top:6px">${L.map((_, i) => done[i] ? "" : lb(i, false)).join("")}${nd ? `<details style="display:inline-block"><summary class="muted" style="font-size:.8rem;cursor:pointer">Пройденные уроки (${nd})</summary>${L.map((_, i) => done[i] ? lb(i, true) : "").join("")}</details>` : ""}</div></div>`;
+  }).join("");
+  krFrame("Подготовка к КР", `<h2 class="ft-h">Подготовка к контрольной</h2><div class="hint">Для каждого задания: <b>① Урок</b> (объяснение и разбор) → <b>② Тренировка</b> → <b>③ Лист</b> (как на КР). В лист можно зайти и сразу. Весь материал — из пособия: ${esc(KR_SRC)} (номер страницы указан).</div>${list}`,
     `<button class="btn" id="krHome">На главную</button>`);
   document.querySelectorAll("[data-kr]").forEach(x => x.onclick = () => krStart(x.dataset.kr));
+  document.querySelectorAll("[data-kl]").forEach(x => x.onclick = () => klStart(x.dataset.kl, +x.dataset.li));
   $("#krHome").onclick = () => { KT = null; closeSession(true); };
+  if (focus) { const c = $("#krc-" + focus); if (c) c.scrollIntoView({ block: "center" }); }
 }
 function krStart(id, rows) { const sh = krSheet(id); KT = { sh, rows: rows || sh.rows.slice(), retry: !!rows, checked: false }; krShow(); }
 function krShow() {
@@ -1363,7 +1381,7 @@ function krShow() {
     `<div class="row2"><button class="btn ghost" id="krBack">К списку</button><button class="btn" id="krSend">Отправить на проверку</button></div>`);
   const ins = [...document.querySelectorAll("#session input.ft-in")];
   ins.forEach((inp, i) => inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (ins[i + 1]) ins[i + 1].focus(); else inp.blur(); } });
-  $("#krBack").onclick = () => { if ([...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Вернуться? Ответы не сохранятся.")) return; krMenu(); };
+  $("#krBack").onclick = () => { if ([...document.querySelectorAll(".ft-in")].some(i => i.value.trim()) && !confirm("Вернуться? Ответы не сохранятся.")) return; krMenu(sh.id); };
   $("#krSend").onclick = () => {
     const vals = krVals(), empty = vals.filter(v => g ? v.split(" ").some(x => !x) : !v.trim()).length;
     if (empty && !confirm(`Незаполненных строк: ${empty}. Всё равно отправить?`)) return;
@@ -1389,7 +1407,314 @@ function krCheck(vals) {
   $("#foot .in").innerHTML = `<div class="row2">${wrong.length ? `<button class="btn ghost" id="krRetry">${IC.repeat} Повторить ошибки</button>` : ""}<button class="btn" id="krList">К списку заданий</button></div>`;
   $("#session .s-body").scrollTop = 0; $("#session").scrollTop = 0;
   const rr = $("#krRetry"); if (rr) rr.onclick = () => krStart(sh.id, KT.wrong);
-  $("#krList").onclick = krMenu;
+  $("#krList").onclick = () => krMenu(sh.id);
+}
+
+/* ---------- КР: уроки и тренировка перед каждым листом (материал — только пособие Провоторовой) ---------- */
+const KL_KEY = "latAnat.krLearn"; // { l: {"sheet-li": {n, at}}, it: {itemId: 1}, tr: {sheet: {n, at}} }
+function klGet() { try { const d = JSON.parse(lsGet(KL_KEY) || "{}") || {}; return { l: d.l || {}, it: d.it || {}, tr: d.tr || {} }; } catch (e) { return { l: {}, it: {}, tr: {} }; } }
+function klSet(d) { lsSet(KL_KEY, JSON.stringify(d)); }
+// лексика словосочетаний: форма в сочетании = словарная форма = значение (словари тем пособия, с. 11–74)
+const KL_LEX = {};
+`arcus=arcus, us m=дуга;vertebrae=vertebra, ae f=позвонок;vertebra=vertebra, ae f=позвонок;crista=crista, ae f=гребень;capitis=caput, itis n=голова, головка;costae=costa, ae f=ребро;
+arteria=arteria, ae f=артерия;genus=genu, us n=колено;cervicalis=cervicalis, e=шейный;facies=facies, ei f=поверхность;intestinalis=intestinalis, e=кишечный;uteri=uterus, i m=матка;
+basis=basis, is f=основание;cranii=cranium, i n=череп;externa=externus, a, um=наружный;corpus=corpus, oris n=тело;ossis=os, ossis n=кость;hyoidei=hyoideus, a, um=подъязычный;
+processus=processus, us m=отросток;articularis=articularis, e=суставной;superior=superior, ius=верхний (сравн. ст.);vena=vena, ae f=вена;cordis=cor, cordis n=сердце;magna=magnus, a, um=большой;
+nervus=nervus, i m=нерв;auricularis=auricularis, e=ушной;magnus=magnus, a, um=большой;sulcus=sulcus, i m=борозда;coronarius=coronarius, a, um=венечный;coronoideus=coronoideus, a, um=венечный;
+cervix=cervix, icis f=шейка;dentis=dens, dentis m=зуб;hiatus=hiatus, us m=щель;sacralis=sacralis, e=крестцовый;rima=rima, ae f=щель;oris=os, oris n=рот;
+saphena=saphenus, a, um=подкожный;parva=parvus, a, um=малый;musculus=musculus, i m=мышца;gluteus=gluteus, a, um=ягодичный;maximus=maximus, a, um=наибольший (превосх. ст. от magnus);
+sutura=sutura, ae f=шов;coronalis=coronalis, e=венечный;fossa=fossa, ae f=ямка;coronoidea=coronoideus, a, um=венечный;ligamentum=ligamentum, i n=связка;cruciatum=cruciatus, a, um=крестообразный;
+anterius=anterior, ius=передний (сравн. ст.);hypoglossus=hypoglossus, a, um=подъязычный;ostium=ostium, i n=отверстие;aortae=aorta, ae f=аорта;porus=porus, i m=отверстие (пора);
+gustatorius=gustatorius, a, um=вкусовой;apertura=apertura, ae f=отверстие;nasalis=nasalis, e=носовой;posterior=posterior, ius=задний (сравн. ст.);semilunaris=semilunaris, e=полулунный;
+vestibuli=vestibulum, i n=преддверие;fovea=fovea, ae f=ямка;centralis=centralis, e=центральный;costalis=costalis, e=рёберный`.split(";").forEach(s => { const [f, d, r] = s.trim().split("="); KL_LEX[f] = { d, r }; });
+// код слова: N — главное сущ. (Nom.), G — сущ. в Gen. (несогласованное определение), A0/A1 — прил., согласованное со словом №0/№1
+const KL_PH = {
+  "tr-lr": ["arcus:N vertebrae:G", "crista:N capitis:G costae:G", "arteria:N genus:G", "vertebra:N cervicalis:A0", "facies:N intestinalis:A0 uteri:G", "basis:N cranii:G externa:A0",
+    "corpus:N ossis:G hyoidei:A1", "processus:N articularis:A0 superior:A0", "vena:N cordis:G magna:A0", "nervus:N auricularis:A0 magnus:A0", "sulcus:N coronarius:A0", "processus:N coronoideus:A0",
+    "cervix:N dentis:G", "hiatus:N sacralis:A0", "rima:N oris:G"],
+  "tr-rl": ["vena:N saphena:A0 parva:A0", "musculus:N gluteus:A0 maximus:A0", "sutura:N coronalis:A0", "fossa:N coronoidea:A0", "ligamentum:N cruciatum:A0 anterius:A0", "nervus:N hypoglossus:A0",
+    "ostium:N aortae:G", "ostium:N uteri:G", "porus:N gustatorius:A0", "apertura:N nasalis:A0 posterior:A0", "cervix:N uteri:G", "hiatus:N semilunaris:A0", "rima:N vestibuli:G", "fovea:N centralis:A0", "fovea:N costalis:A0"]
+};
+function klDecl(d) { const m = d.match(/,\s*([a-z]+)\s+([mfn])$/); if (!m) return null; return { d: { ae: 1, i: 2, us: 4, ei: 5 }[m[1]] || 3, g: m[2] }; }
+function klAdjGr(d) { return /, a, um$/.test(d) ? "1 группа (1–2 скл.)" : /, ius$/.test(d) ? "сравн. ст., 3 скл." : "2 группа (3 скл.)"; }
+const KL_RULE = {
+  NG: "Сущ. + сущ.: первое — в Nom. (что?), второе — в Gen. (чего?), это несогласованное определение; порядок слов в латинском и русском совпадает; второе сущ. может переводиться прилагательным (с. 11).",
+  NA: "Сущ. + прил.: на первом месте сущ.; прил. совпадает с ним в роде, числе и падеже (согласованное определение). При переводе с латыни сначала переводится прилагательное (с. 21–22).",
+  NAA: "Если к одному сущ. относится несколько прилагательных, они переводятся в обратном порядке (с. 22).",
+  NAG: "Сущ. + прил. + сущ.: прил. относится к первому сущ.; порядок перевода — прил., первое сущ., второе сущ. (с. 22).",
+  NGA: "Сущ. + сущ. + прил.: прил. в Nom. относится к первому сущ., в Gen. — ко второму (с. 22)."
+};
+function klPhraseItem(sid, r, i) {
+  const toks = r[sid === "tr-lr" ? 0 : 1].split(" "), codes = KL_PH[sid][i].split(" ").map(x => x.split(":")[1]);
+  const rus = sid === "tr-lr" ? r[1] : r[0], lat = sid === "tr-lr" ? r[0] : r[1];
+  const info = toks.map((t, j) => {
+    const L = KL_LEX[t] || { d: "?", r: "?" }, c = codes[j];
+    if (c === "N" || c === "G") { const dd = klDecl(L.d) || {}; return `<b class="lat">${esc(t)}</b> ← ${esc(L.d)} (${esc(L.r)}) — сущ., ${dd.d} скл., ${c === "N" ? "<b>Nom. Sg.</b> (что?) — главное слово" : "<b>Gen. Sg.</b> (чего?) — несогласованное определение"}`; }
+    const tj = +c[1], tc = codes[tj], tg = (klDecl((KL_LEX[toks[tj]] || {}).d || "") || {}).g;
+    return `<b class="lat">${esc(t)}</b> ← ${esc(L.d)} (${esc(L.r)}) — прил., ${esc(klAdjGr(L.d))}; ${tg}, Sg., <b>${tc === "N" ? "Nom." : "Gen."}</b> — согласовано с <span class="lat">${esc(toks[tj])}</span>`;
+  });
+  const pat = codes.join("").replace(/A\d/g, "A"), rule = pat === "NG" || pat === "NGG" ? KL_RULE.NG : pat === "NA" ? KL_RULE.NA : pat === "NAA" ? KL_RULE.NA + " " + KL_RULE.NAA : pat === "NAG" ? KL_RULE.NAG : KL_RULE.NGA;
+  return { id: sid + ":" + i, lat, rus, p: r[2], info, rule };
+}
+const KL_PREF = [["super", "над, выше", "superficialis, e", "поверхностный", 62], ["supra", "над, выше", "suprarenalis, e", "надпочечный", 62], ["epi", "над, выше (греч.)", "epicondylus, i m", "надмыщелок", 62],
+  ["infra", "под, ниже", "infraorbitalis, e", "подглазничный", 62], ["sub", "под, ниже", "sublingualis, e", "подъязычный", 62], ["hypo", "под, ниже (греч.)", "hypogastricus, a, um", "подчревный", 62],
+  ["juxta", "рядом, около", "juxtacolicus, a, um", "околоободочный", 62], ["para", "рядом, около (греч.)", "paranasalis, e", "околоносовой", 62], ["intra", "внутри", "intrarenalis, e", "внутрипочечный", 62],
+  ["endo", "внутри (греч.)", "endocardium, i n", "эндокард", 62], ["extra", "вне, снаружи", "extracapsularis", "внекапсульный", 62], ["ecto", "вне, снаружи (греч.)", "ectoderma", "эктодерма", 62],
+  ["circum", "вокруг", "circumflexus, a, um", "огибающий", 62], ["peri", "вокруг (греч.)", "pericardium, i n", "перикард", 62], ["ad", "приближение к чему-либо", "m. adductor", "приводящая мышца", 62],
+  ["ab", "удаление от чего-либо", "m. abductor", "отводящая мышца", 62], ["apo", "удаление (греч.)", "aponeurosis, is f", "апоневроз", 62], ["inter", "между", "intercondylaris", "межмыщелковый", 64],
+  ["dia", "между (греч.)", "diaphragma, atis n", "диафрагма", 62], ["meso", "между; брыжейка органа (греч.)", "mesogastrium, i n", "мезогастрий", 63], ["ante", "перед", "antebrachium, i n", "предплечье", 63],
+  ["pre", "перед (также prae-)", "prevertebralis, e", "предпозвоночный", 63, "pre|prae"], ["pro", "перед, вперёд", "processus, us m", "отросток", 63], ["post", "позади, за", "postpyramidalis, e", "постпирамидальный", 63],
+  ["retro", "позади, за", "retropharyngeus, a, um", "заглоточный", 63], ["meta", "позади, за (греч.)", "metacarpus, i m", "пясть", 63], ["con", "объединение, соединение", "conjunctiva, ae f", "соединительная оболочка", 63],
+  ["syn", "соединение (греч.)", "synchondrosis, is f", "синхондроз", 63], ["semi", "половинный", "semilunaris, e", "полулунный", 63], ["hemi", "половинный (греч.)", "hemisphaerium, i n", "полушарие", 63],
+  ["trans", "через, сквозь", "transpyloricus, a, um", "чреспривратниковый", 63]];
+const KL_SUF = [["-ul-", "уменьшительное (род сохраняется)", "caput, itis n → capitulum, i n", "голова → головка", "capitulum", 57], ["-ol-", "уменьшительное", "fovea, ae f → foveola, ae f", "ямка → ямочка", "foveola", 57],
+  ["-cul-", "уменьшительное", "canalis, is m → canaliculus, i m", "канал → каналец", "canaliculus", 57], ["-ell-", "уменьшительное", "lamina, ae f → lamella, ae f", "пластинка → пластинка (меньшего размера)", "lamella", 57],
+  ["-ill-", "уменьшительное", "mamma, ae f → mamilla, ae f", "молочная железа → сосок", "mamilla", 57], ["-or", "действующее лицо или инструмент (Gen. -oris m)", "flecto → flexor", "гнуть → сгибатель", "flexor", 58],
+  ["-io", "действие (Gen. -onis f)", "flecto → flexio", "гнуть → сгибание", "flexio", 58], ["-ur(a)", "результат действия (Gen. -ae f)", "flecto → flexura", "гнуть → изгиб", "flexura", 58],
+  ["-men", "результат, инструмент или действие", "foro → foramen, inis n", "просверливать → отверстие", "foramen", 58], ["-ment(um)", "результат, инструмент или действие", "ligo → ligamentum, i n", "вязать → связка", "ligamentum", 58],
+  ["-al-", "«относящийся к чему-либо» (2 группа, 3 скл.)", "nasus, i m → nasalis, e", "нос → носовой", "nasalis", 59], ["-ar-", "«относящийся к» — если в основе есть -l-", "clavicula, ae f → clavicularis, e", "ключица → ключичный", "clavicularis", 59],
+  ["-in-", "«относящийся к» (1 группа)", "palatum, i n → palatinus, a, um", "нёбо → нёбный", "palatinus", 59], ["-ic-", "«относящийся к» — греческие основы", "thorax, acis m → thoracicus, a, um", "грудная клетка → (относящийся к грудной клетке)", "thoracicus", 59],
+  ["-e- (долгий)", "«относящийся к» — греческие основы", "pharynx, ngis m → pharyngeus, a, um", "глотка → (относящийся к глотке)", "pharyngeus", 59], ["-e- (краткий)", "вещество, из которого сделано", "cartilago, inis f → cartilagineus, a, um", "хрящ → хрящевой", "cartilagineus", 59],
+  ["-t- / -at-", "«снабжённый чем-либо»", "cauda, ae f → caudatus, a, um", "хвост → хвостатый", "caudatus", 59], ["-os-", "«изобилующий, с ярко выраженным признаком»", "squama, ae f → squamosus, a, um", "чешуя → чешуйчатый", "squamosus", 59],
+  ["-ide-", "«похожий на» — греческие основы", "thyreos → thyr(e)oideus, a, um", "щит → щитовидный", "thyreoideus|thyroideus", 59], ["-form-", "«похожий на» — латинские основы", "crux, crucis f → cruciformis, e", "крест → крестообразный", "cruciformis", 59],
+  ["-id- + -al-", "«похожий на, -видный» — греческие основы", "sphenoidalis, e", "клиновидный", "sphenoidalis", 60], ["-fer-", "«несущий, переносящий»", "lac, lactis n → lactifer, era, erum", "молоко → млечный", "lactifer", 60],
+  ["-ari- (прил.)", "принадлежность или свойство", "corona, ae f → coronarius, a, um", "венок → венечный", "coronarius", 60], ["-ari- (сущ.)", "место или хранилище", "ovum, i n → ovarium, i n", "яйцо → яичник", "ovarium", 60]];
+const KL_ABBR = [["a.", "arteria", "артерия", "aa.", "arteriae", "артерии"], ["b.", "bursa", "сумка", "bb.", "bursae", "сумки"], ["fasc.", "fasciculus", "пучок", "fascc.", "fasciculi", "пучки"],
+  ["for.", "foramen", "отверстие", "forr.", "foramina", "отверстия"], ["gangl.", "ganglion", "узел", "gangll.", "ganglia", "узлы"], ["gl.", "glandula", "железа", "gll.", "glandulae", "железы"],
+  ["lam.", "lamina", "пластинка", "lamm.", "laminae", "пластинки"], ["lig.", "ligamentum", "связка", "ligg.", "ligamenta", "связки"], ["m.", "musculus", "мышца", "mm.", "musculi", "мышцы"],
+  ["n.", "nervus", "нерв", "nn.", "nervi", "нервы"], ["nucl.", "nucleus", "ядро", "", "nuclei", "ядра", "⚠ в списке пособия мн. ч. напечатано «nn.», а в упражнениях — «nucll.»"], ["r.", "ramus", "ветвь", "rr.", "rami", "ветви"],
+  ["reg.", "regio", "область", "regg.", "regiones", "области"], ["seg.", "segmentum", "сегмент"], ["sul.", "sulcus", "борозда", "sull.", "sulci", "борозды"], ["sut.", "sutura", "шов", "sutt.", "suturae", "швы"],
+  ["tr.", "tractus", "путь", "trr.", "tractus", "пути"], ["tun.", "tunica", "оболочка"], ["vag.", "vagina", "влагалище", "vagg.", "vaginae", "влагалища"], ["v.", "vena", "вена", "vv.", "venae", "вены"]];
+// грамматическая форма: [форма, словарная форма, значение, разборы "род число падеж скл." (|), страница парадигмы]
+const KL_GF = [["ala", "ala, ae f", "крыло", "f sg nom 1", 13], ["nervi", "nervus, i m", "нерв", "m sg gen 2|m pl nom 2", 15], ["margines", "margo, inis m", "край", "m pl nom 3", 43],
+  ["regionum", "regio, onis f", "область", "f pl gen 3", 43], ["corporis", "corpus, oris n", "тело", "n sg gen 3", 43], ["dentes", "dens, dentis m", "зуб", "m pl nom 3", 43],
+  ["ossa", "os, ossis n", "кость", "n pl nom 3", 43], ["aures", "auris, is f", "ухо", "f pl nom 3", 44], ["vasa", "vas, vasis n", "сосуд", "n pl nom 3", 44],
+  ["cornuum", "cornu, us n", "рог", "n pl gen 4", 53], ["cornus", "cornu, us n", "рог", "n sg gen 4", 53], ["facies", "facies, ei f", "поверхность", "f sg nom 5|f sg gen 5|f pl nom 5", 53]];
+// склонение: [сочетание, перевод, стр., сущ., скл., род, прил., группа(12|3), Gen.Sg., Nom.Pl., Gen.Pl.]
+const KL_DC = [["sutura coronalis", "венечный шов", 70, "sutura, ae f", 1, "f", "coronalis, e", 3, "suturae coronalis", "suturae coronales", "suturarum coronalium"],
+  ["nervus hypoglossus", "подъязычный нерв", 72, "nervus, i m", 2, "m", "hypoglossus, a, um", 12, "nervi hypoglossi", "nervi hypoglossi", "nervorum hypoglossorum"],
+  ["fossa coronoidea", "венечная ямка", 70, "fossa, ae f", 1, "f", "coronoideus, a, um", 12, "fossae coronoideae", "fossae coronoideae", "fossarum coronoidearum"],
+  ["porus gustatorius", "вкусовое отверстие", 72, "porus, i m", 2, "m", "gustatorius, a, um", 12, "pori gustatorii", "pori gustatorii", "pororum gustatoriorum"],
+  ["hiatus sacralis", "крестцовая щель", 73, "hiatus, us m", 4, "m", "sacralis, e", 3, "hiatus sacralis", "hiatus sacrales", "hiatuum sacralium"],
+  ["facies intestinalis", "кишечная поверхность", 22, "facies, ei f", 5, "f", "intestinalis, e", 3, "faciei intestinalis", "facies intestinales", "facierum intestinalium"]];
+const KL_TBL_N = `<table class="kl-t"><tr><th></th><th>Nom. Sg.</th><th>Gen. Sg.</th><th>Nom. Pl.</th><th>Gen. Pl.</th></tr>
+<tr><th>1 (f)</th><td>-a</td><td>-ae</td><td>-ae</td><td>-arum</td></tr><tr><th>2 m</th><td>-us</td><td>-i</td><td>-i</td><td>-orum</td></tr><tr><th>2 n</th><td>-um, -on</td><td>-i</td><td>-a</td><td>-orum</td></tr>
+<tr><th>3 m, f</th><td>разные</td><td>-is</td><td>-es</td><td>-um / -ium</td></tr><tr><th>3 n</th><td>разные</td><td>-is</td><td>-a / -ia</td><td>-um / -ium</td></tr>
+<tr><th>4 m</th><td>-us</td><td>-us</td><td>-us</td><td>-uum</td></tr><tr><th>4 n</th><td>-u</td><td>-us</td><td>-ua</td><td>-uum</td></tr><tr><th>5 (f)</th><td>-es</td><td>-ei</td><td>-es</td><td>-erum</td></tr></table>
+<div class="hint">3 скл.: согласный тип — Nom. Pl. n <b>-a</b>, Gen. Pl. <b>-um</b> (margo, regio, corpus); смешанный — <b>-a</b>, <b>-ium</b> (dens, pars, os, canalis, auris); гласный — <b>-ia</b>, <b>-ium</b> (rete). vas, vasis n во мн. ч. — как 2 скл.: vasa, vasorum (с. 42–44). Приложение 2, с. 74.</div>`;
+const KL_TBL_A = `<table class="kl-t"><tr><th></th><th>Nom. Sg.</th><th>Gen. Sg.</th><th>Nom. Pl.</th><th>Gen. Pl.</th></tr>
+<tr><th>1 гр. f (1 скл.)</th><td>-a</td><td>-ae</td><td>-ae</td><td>-arum</td></tr><tr><th>1 гр. m (2 скл.)</th><td>-us, -er</td><td>-i</td><td>-i</td><td>-orum</td></tr><tr><th>1 гр. n (2 скл.)</th><td>-um</td><td>-i</td><td>-a</td><td>-orum</td></tr>
+<tr><th>2 гр. m, f (3 скл.)</th><td>-is</td><td>-is</td><td>-es</td><td>-ium</td></tr><tr><th>2 гр. n (3 скл.)</th><td>-e</td><td>-is</td><td>-ia</td><td>-ium</td></tr>
+<tr><th>сравн. m, f</th><td>-ior</td><td>-ioris</td><td>-iores</td><td>-iorum</td></tr><tr><th>сравн. n</th><td>-ius</td><td>-ioris</td><td>-iora</td><td>-iorum</td></tr></table>
+<div class="hint">Примеры пособия: albus, a, um — albi, albae, albi; brevis, e — Gen. brevis, Gen. Pl. brevium; simplex, icis — simplices, simplicia, simplicium (с. 20, 29–30, 75).</div>`;
+const KL_GEN = `<table class="kl-t"><tr><th>скл.</th><td>1</td><td>2</td><td>3</td><td>4</td><td>5</td></tr><tr><th>Gen. Sg.</th><td>-ae</td><td>-i</td><td>-is</td><td>-us</td><td>-ei</td></tr></table>`;
+const KL_ENDS = ["-arum", "-orum", "-um / -ium", "-uum", "-erum"], KL_DG = ["1 скл., f", "2 скл., m", "2 скл., n", "3 скл., m", "3 скл., f", "3 скл., n", "4 скл., m", "4 скл., n", "5 скл., f"];
+const KL_FORM = { "sg nom": "Nom. Sg.", "sg gen": "Gen. Sg.", "pl nom": "Nom. Pl.", "pl gen": "Gen. Pl." };
+const klCh = (q, a, o, h, lat) => ({ k: "ch", q, a: [].concat(a), o: [...new Set([].concat(a, o))], h, lat });
+const klTy = (q, a, m, h) => ({ k: "ty", q, a, m, h });
+function klOthers(arr, x, f, n = 3, bad) { return sample(arr.filter(y => y !== x && f(y) !== f(x) && !(bad && bad(y))).map(f).filter((v, i, s) => s.indexOf(v) === i), n); }
+function klBuild() {
+  const D = {}, chunk = (items, n, name) => { const L = []; for (let i = 0; i < items.length; i += n) L.push({ title: `${name} ${L.length + 1}`, items: items.slice(i, i + n) }); return L; };
+  ["tr-lr", "tr-rl"].forEach(sid => {
+    const ps = krSheet(sid).rows.map((r, i) => klPhraseItem(sid, r, i)), lr = sid === "tr-lr";
+    const items = ps.map(x => {
+      const rus1 = x.rus.split("|")[0];
+      return { id: x.id, p: x.p, intro: `<span class="badge">Словосочетание · с. ${x.p}</span><div><span class="lat">${esc(x.lat)}</span></div><div class="ru">${esc(x.rus.split("|").join(" / "))}</div>
+        <div class="kl-parse">${x.info.map(s => `<div>${s}</div>`).join("")}</div><div class="nt">${esc(x.rule)}</div>`,
+        ans: `<span class="lat">${esc(x.lat)}</span> — ${esc(rus1)}`,
+        st: [klCh(`<div class="prompt"><span class="lat big">${esc(x.lat)}</span></div>`, rus1, klOthers(ps, x, y => y.rus.split("|")[0]), "Сначала главное сущ. (Nom.), затем определения: прил. согласовано с ним, сущ. в Gen. — «чего?»."),
+          klCh(`<div class="prompt"><span class="big ru">${esc(rus1)}</span></div>`, x.lat, klOthers(ps, x, y => y.lat), "На первом месте — существительное; прилагательное в том же роде, числе и падеже.", true),
+          lr ? klTy(`<div class="prompt"><span class="lat big">${esc(x.lat)}</span></div><div class="hint">Переведите на русский</div>`, x.rus, "rus") : klTy(`<div class="prompt"><span class="big ru">${esc(rus1)}</span></div><div class="hint">Напишите по-латыни (окончания строго)</div>`, x.lat, "lat")] };
+    });
+    D[sid] = { lessons: chunk(items, 5, "Урок"), all: items };
+  });
+  // 2. грамматическая форма: теория + пошаговый разбор
+  const th = [
+    { id: "gram:t1", th: 1, intro: `<span class="badge">Теория · с. 10</span><div class="ru">Род, число, падеж. Как определить склонение</div><div class="kl-th">
+      <p>В курсе изучаются 2 падежа: <b>Nominativus</b> (кто? что?) и <b>Genetivus</b> (кого? чего?). Род: masculinum (m), femininum (f), neutrum (n). Число: singularis (ед.), pluralis (мн.).</p>
+      <p><b>Склонение определяется по окончанию Genetivus singularis</b> — оно стоит в словарной форме после запятой:</p>${KL_GEN}
+      <p>Словарная форма = Nom. Sg. + окончание Gen. Sg. + род: ala, ae f (1 скл.), globulus, i m (2), caput, itis n (3), arcus, us m (4), facies, ei f (5).</p></div>`,
+      st: [klCh("Склонение определяется по…", "Gen. Sg.", ["Nom. Sg.", "Nom. Pl.", "Gen. Pl."], "Таблица на с. 10"), klCh("Gen. Sg. на <b>-ae</b> — какое склонение?", "1", ["2", "3", "4", "5"], "-ae → 1, -i → 2, -is → 3, -us → 4, -ei → 5"),
+        klCh("Gen. Sg. на <b>-is</b> — какое склонение?", "3", ["1", "2", "4", "5"], "-ae → 1, -i → 2, -is → 3, -us → 4, -ei → 5"), klCh("Словарная форма <span class='lat'>arcus, us m</span> — склонение?", "4", ["1", "2", "3", "5"], "После запятой — окончание Gen. Sg.: -us → 4 скл."),
+        klCh("Словарная форма <span class='lat'>caput, itis n</span> — склонение и род?", "3 скл., n", ["2 скл., n", "3 скл., m", "4 скл., n"], "-is → 3 скл.; последняя буква словарной формы — род"),
+        klCh("Словарная форма <span class='lat'>facies, ei f</span> — склонение?", "5", ["1", "3", "4"], "-ei → 5 скл.")] },
+    { id: "gram:t2", th: 1, intro: `<span class="badge">Теория · Приложение 2, с. 74</span><div class="ru">Падежные окончания существительных</div><div class="kl-th">${KL_TBL_N}</div>`,
+      st: [klCh("1 скл., Gen. Pl.", "-arum", ["-orum", "-uum", "-erum"], "1 скл.: -a, -ae | -ae, -arum"), klCh("2 скл. n, Nom. Pl.", "-a", ["-i", "-ae", "-es"], "2 n: -um, -i | -a, -orum"),
+        klCh("4 скл. m, Gen. Pl.", "-uum", ["-us", "-orum", "-ium"], "4 m: -us, -us | -us, -uum"), klCh("5 скл., Gen. Sg.", "-ei", ["-es", "-is", "-erum"], "5: -es, -ei | -es, -erum"),
+        klCh("3 скл. m, f, Nom. Pl.", "-es", ["-a", "-i", "-ae"], "3 m, f: Nom. Pl. -es"), klCh("Окончание <b>-orum</b> — это…", "2 скл., Gen. Pl.", ["1 скл., Gen. Pl.", "2 скл., Nom. Pl.", "3 скл., Gen. Pl."], "-orum — Gen. Pl. 2 скл.")] },
+    { id: "gram:t3", th: 1, intro: `<span class="badge">Теория · как разобрать форму</span><div class="ru">Определение грамматической формы</div><div class="kl-th">
+      <p>1) По словарной форме (окончание Gen. Sg.) определите <b>склонение</b>.</p><p>2) Последняя буква словарной формы — <b>род</b>.</p>
+      <p>3) По таблице окончаний этого склонения найдите <b>число и падеж</b>.</p><p>Если окончание одинаково у нескольких форм, возможны все варианты: <span class="lat">alae</span> (ala, ae f) — Gen. Sg. или Nom. Pl.; <span class="lat">ductus</span> (4 скл.) — Nom. Sg., Gen. Sg. или Nom. Pl. (с. 13, 53).</p></div>`,
+      st: [klCh("<span class='lat'>alae</span> (ala, ae f) — какая форма?", "Gen. Sg. или Nom. Pl.", ["только Gen. Sg.", "только Nom. Pl.", "Gen. Pl."], "1 скл.: Gen. Sg. -ae = Nom. Pl. -ae"),
+        klCh("<span class='lat'>nervorum</span> (nervus, i m) — какая форма?", "m, Plur., Gen., 2 скл.", ["m, Sing., Gen., 2 скл.", "m, Plur., Nom., 2 скл.", "n, Plur., Gen., 2 скл."], "2 скл.: -orum — Gen. Pl.")] }];
+  const gf = KL_GF.map((r, i) => {
+    const [form, dict, rus, an, p] = r, alts = an.split("|"), [g, , , d] = alts[0].split(" ");
+    const fs = alts.map(a => KL_FORM[a.split(" ").slice(1, 3).join(" ")]);
+    return { id: "gram:" + i, p, intro: `<span class="badge">Разбор формы · с. ${p}</span><div><span class="lat">${esc(form)}</span></div><div class="gram">${esc(dict)} — ${esc(rus)}</div><div class="nt">Определите шаг за шагом: склонение → род → число и падеж.</div>`,
+      ans: `<span class="lat">${esc(form)}</span> — ${esc(krGramTxt(an))}`,
+      st: [klCh(`<div class="prompt"><span class="lat big">${esc(form)}</span></div>Словарная форма: <span class="lat">${esc(dict)}</span>. Какое склонение?`, d, ["1", "2", "3", "4", "5"], "Смотрите окончание Gen. Sg. после запятой: -ae 1, -i 2, -is 3, -us 4, -ei 5"),
+        klCh(`<span class="lat">${esc(dict)}</span> — какой род?`, { m: "m — мужской", f: "f — женский", n: "n — средний" }[g], ["m — мужской", "f — женский", "n — средний"], "Последняя буква словарной формы"),
+        klCh(`Окончание формы <span class="lat">${esc(form)}</span> по таблице ${d} скл. — это…`, fs.length > 1 ? fs.join(" или ") : fs[0], fs.length > 1 ? [fs[0], "Gen. Pl."] : Object.values(KL_FORM), "Сравните с таблицей окончаний (Приложение 2, с. 74)")] };
+  });
+  D.gram = { lessons: [{ title: "Теория", items: th }, ...chunk(gf, 6, "Разбор форм")], all: gf };
+  // 3. склонение словосочетаний
+  const th2 = [
+    { id: "decl:t1", th: 1, intro: `<span class="badge">Теория · с. 20–22, 28–30</span><div class="ru">Прилагательные и согласование</div><div class="kl-th">
+      <p><b>1 группа</b> — прилагательные 1–2 скл.: albus, a, um; dexter, tra, trum. Мужской и средний род — по 2 скл., женский — по 1 скл.</p>
+      <p><b>2 группа</b> — прилагательные 3 скл.: двух окончаний (brevis, e: m, f -is, n -e) и одного окончания (simplex, icis).</p>
+      <p><b>Согласование:</b> у существительного и прилагательного совпадают <b>род, число и падеж</b>; окончания при этом могут быть разными — каждое слово склоняется по своему склонению (vertebra cervicalis — vertebrae cervicalis).</p></div>${KL_TBL_A}`,
+      st: [klCh("<span class='lat'>albus, a, um</span> — какая группа?", "1 группа (1–2 скл.)", ["2 группа (3 скл.)"], "-us, -a, -um → 1 группа"), klCh("<span class='lat'>brevis, e</span> — какая группа?", "2 группа (3 скл.)", ["1 группа (1–2 скл.)"], "-is, -e → 3 скл."),
+        klCh("Что совпадает у сущ. и согласованного прил.?", "род, число, падеж", ["окончание", "склонение", "только падеж"], "с. 21: «должны совпадать род, число, падеж»"),
+        klCh("Прил. 2 группы, Gen. Pl.", "-ium", ["-um", "-orum", "-arum"], "brevium, simplicium"), klCh("Прил. 1 группы, f, Gen. Pl.", "-arum", ["-orum", "-ium", "-ae"], "albarum"),
+        klCh("<span class='lat'>simplex, icis</span>, n, Nom. Pl.", "simplicia", ["simplices", "simplica", "simplicium"], "3 скл. n Nom. Pl. -ia", true)] },
+    { id: "decl:t2", th: 1, intro: `<span class="badge">Теория · алгоритм</span><div class="ru">Как просклонять словосочетание</div><div class="kl-th">
+      <p>1) Существительное: по словарной форме — склонение и род.</p><p>2) Прилагательное: группа (1–2 скл. или 3 скл.); берётся форма того же рода.</p>
+      <p>3) Окончания нужного числа и падежа берутся из таблицы <b>для каждого слова отдельно</b>.</p>
+      <p>Пример (с. 22): <span class="lat">vertebra cervicalis</span> — Gen. Sg. <span class="lat">vertebrae cervicalis</span>, Nom. Pl. <span class="lat">vertebrae cervicales</span>, Gen. Pl. <span class="lat">vertebrarum cervicalium</span>.</p></div>${KL_TBL_N}`,
+      st: [klCh("<span class='lat'>vertebra cervicalis</span> → Gen. Pl.", "vertebrarum cervicalium", ["vertebrarum cervicalarum", "vertebrae cervicalium", "vertebrorum cervicalium"], "vertebra — 1 скл. (-arum), cervicalis — 3 скл. (-ium)", true),
+        klCh("<span class='lat'>vertebra cervicalis</span> → Nom. Pl.", "vertebrae cervicales", ["vertebrae cervicalae", "vertebra cervicales", "vertebrae cervicalis"], "1 скл. Nom. Pl. -ae; 3 скл. m, f Nom. Pl. -es", true)] }];
+  const dc = KL_DC.map((r, i) => {
+    const [lat, rus, p, nd, d, g, ad, gr, gs, np, gp] = r, nEnd = { 1: "-arum", 2: "-orum", 3: "-um / -ium", 4: "-uum", 5: "-erum" }[d], aEnd = gr === 3 ? "-ium" : g === "f" ? "-arum" : "-orum";
+    return { id: "decl:" + i, p, intro: `<span class="badge">Склонение · с. ${p}</span><div><span class="lat">${esc(lat)}</span></div><div class="ru">${esc(rus)}</div>
+      <div class="kl-parse"><div><span class="lat">${esc(nd)}</span> — сущ., ${d} скл., ${g}</div><div><span class="lat">${esc(ad)}</span> — прил., ${gr === 3 ? "2 группа (3 скл.)" : "1 группа (1–2 скл.)"}</div>
+      <div>Gen. Sg.: <span class="lat">${esc(gs)}</span></div><div>Nom. Pl.: <span class="lat">${esc(np)}</span></div><div>Gen. Pl.: <span class="lat">${esc(gp)}</span></div></div>`,
+      ans: `<span class="lat">${esc(lat)}</span>: ${esc(gs)} · ${esc(np)} · ${esc(gp)}`,
+      st: [klCh(`Существительное <span class="lat">${esc(nd)}</span> — склонение и род?`, `${d} скл., ${g}`, KL_DG, "Окончание Gen. Sg. после запятой + последняя буква"),
+        klCh(`Прилагательное <span class="lat">${esc(ad)}</span> — группа?`, gr === 3 ? "2 группа (3 скл.)" : "1 группа (1–2 скл.)", ["1 группа (1–2 скл.)", "2 группа (3 скл.)"], "-us, -a, -um → 1 группа; -is, -e → 3 скл."),
+        klCh(`Окончание Gen. Pl. у <span class="lat">${esc(lat.split(" ")[0])}</span> (${d} скл.)`, nEnd, KL_ENDS, "Таблица окончаний сущ., с. 74"),
+        klCh(`Окончание Gen. Pl. у <span class="lat">${esc(lat.split(" ")[1])}</span>`, aEnd, ["-arum", "-orum", "-ium"], "1 гр.: f -arum, m/n -orum; 2 гр.: -ium"),
+        klTy(`<div class="prompt"><span class="lat big">${esc(lat)}</span></div><div class="hint">→ Gen. Sg.</div>`, gs, "lat", "Каждое слово — по своему склонению"),
+        klTy(`<div class="prompt"><span class="lat big">${esc(lat)}</span></div><div class="hint">→ Nom. Pl.</div>`, np, "lat"),
+        klTy(`<div class="prompt"><span class="lat big">${esc(lat)}</span></div><div class="hint">→ Gen. Pl.</div>`, gp, "lat")] };
+  });
+  D.decl = { lessons: [{ title: "Теория", items: th2 }, ...chunk(dc, 3, "Склонение")], all: dc };
+  // 4а. приставки
+  const pf = KL_PREF.map((r, i) => {
+    const [pr, mean, ex, exr, p, alts] = r, stem = ex.split(",")[0].replace(/^m\. /, "").replace(new RegExp("^" + pr), "…");
+    return { id: "pref:" + i, p, pr, mean, intro: `<span class="badge">Приставка · с. ${p}</span><div><span class="lat">${esc(pr)}-</span></div><div class="ru">${esc(mean)}</div><div class="gram">${esc(ex)} — ${esc(exr)}</div>`,
+      ans: `<span class="lat">${esc(pr)}-</span> — ${esc(mean)} · ${esc(ex)} — ${esc(exr)}`,
+      st: [klCh(`<div class="prompt"><span class="lat big">${esc(pr)}-</span></div>Значение приставки?`, mean, klOthers(KL_PREF.map(x => ({ m: x[1] })), { m: mean }, y => y.m, 3, y => y.m.split(/[ ,(;]/)[0] === mean.split(/[ ,(;]/)[0]), ""),
+        klCh(`<div class="prompt"><span class="big ru">${esc(exr)}</span></div>Какая приставка?`, pr + "-", klOthers(KL_PREF, r, y => y[0] + "-", 3, y => y[1].split(/[ ,(;]/)[0] === mean.split(/[ ,(;]/)[0]), "", true),
+        klTy(`<div class="prompt"><span class="lat big">${esc(stem)}</span></div><div class="hint">${esc(exr)} — впишите приставку</div>`, alts || pr, "lat")] };
+  });
+  D.pref = { lessons: chunk(pf, 6, "Урок"), all: pf };
+  // 4б. суффиксы
+  const sf = KL_SUF.map((r, i) => {
+    const [su, mean, ex, exr, word, p] = r;
+    return { id: "suf:" + i, p, intro: `<span class="badge">Суффикс · с. ${p}</span><div><span class="lat">${esc(su)}</span></div><div class="ru">${esc(mean)}</div><div class="gram">${esc(ex)}</div><div class="nt">${esc(exr)}</div>`,
+      ans: `<span class="lat">${esc(su)}</span> — ${esc(mean)} · ${esc(ex)}`,
+      st: [klCh(`<div class="prompt"><span class="lat big">${esc(su)}</span></div>Значение суффикса?`, mean, klOthers(KL_SUF, r, y => y[1], 3, y => y[1].split(" ")[0] === mean.split(" ")[0]), ""),
+        klCh(`<div class="prompt"><span class="lat big">${esc(word.split("|")[0])}</span></div>Какой суффикс?`, su, klOthers(KL_SUF, r, y => y[0], 3, y => y[1].split(" ")[0] === mean.split(" ")[0]), "", true),
+        klTy(`<div class="prompt"><span class="big ru">${esc(exr)}</span></div><div class="hint">${ex.includes("→") ? esc(ex.split("→")[0].trim()) + " → " : ""}напишите производное слово (${esc(su)})</div>`, word, "lat")] };
+  });
+  D.suf = { lessons: chunk(sf, 6, "Урок"), all: sf };
+  // 5. сокращения
+  const ab = KL_ABBR.map((r, i) => {
+    const [a, f, ru, ap, fp, rup, warn] = r, st = [klCh(`<div class="prompt"><span class="lat big">${esc(a)}</span></div>Полная форма?`, f, klOthers(KL_ABBR, r, y => y[1]), "", true),
+      klCh(`<div class="prompt"><span class="big ru">${esc(ru)}</span></div>Как сокращается?`, a, klOthers(KL_ABBR, r, y => y[0]), "", true),
+      klTy(`<div class="prompt"><span class="lat big">${esc(a)}</span></div><div class="hint">Напишите полностью</div>`, f, "lat")];
+    if (ap) st.push(klTy(`<div class="prompt"><span class="lat big">${esc(ap)}</span></div><div class="hint">Мн. ч.: удвоение последней буквы (с. 67–68). Напишите полностью</div>`, fp, "lat"));
+    return { id: "abbr:" + i, p: 68, intro: `<span class="badge">Сокращение · с. 68</span><div><span class="lat">${esc(a)}</span> — <span class="lat">${esc(f)}</span></div><div class="ru">${esc(ru)}</div>
+      ${fp ? `<div class="gram">${ap ? esc(ap) : "мн. ч."} — ${esc(fp)} — ${esc(rup)}</div>` : ""}${warn ? `<div class="nt">${esc(warn)}</div>` : ""}`,
+      ans: `<span class="lat">${esc(a)}</span> — ${esc(f)} (${esc(ru)})${ap ? `; ${esc(ap)} — ${esc(fp)}` : ""}`, st };
+  });
+  D.abbr = { lessons: chunk(ab, 5, "Урок"), all: ab };
+  return D;
+}
+let KLD = null, KS = null;
+function klData() { return KLD || (KLD = klBuild()); }
+function klLessonDone(sid, li) { return !!klGet().l[sid + "-" + li]; }
+function klCheckAns(s, val) {
+  const alts = s.a.split("|");
+  if (s.m === "rus") return alts.some(a => ftRusOk(a, val));
+  const v = norm(val); return !!v && alts.some(a => norm(a) === v);
+}
+function klStart(sid, li) {
+  const D = klData()[sid], train = li < 0;
+  let items;
+  if (train) {
+    items = shuffle(D.all).slice(0, 12).map(x => {
+      const chs = x.st.filter(s => s.k === "ch"), tys = x.st.filter(s => s.k === "ty");
+      return { x, st: tys.length ? [sample(chs, 1)[0], ...sample(tys, Math.min(2, tys.length))] : sample(chs, 2), i: 0, ready: 0, miss: 0 };
+    });
+  } else items = D.lessons[li].items.map(x => ({ x, st: [{ k: "in" }, ...x.st], i: 0, ready: 0, miss: 0 }));
+  KS = { sid, li, train, title: `${krSheet(sid).title} · ${train ? "тренировка" : D.lessons[li].title.toLowerCase()}`, items, step: -1, last: null, mist: 0, ans: 0, first: 0, done: 0, wrong: new Set(), t0: Date.now() };
+  KS.total = items.reduce((a, it) => a + it.st.length, 0);
+  $("#session").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  klNext();
+}
+function klPick() {
+  const open = KS.items.filter(it => !it.done); if (!open.length) return null;
+  const notLast = open.filter(it => it !== KS.last);
+  const ready = notLast.filter(it => it.ready <= KS.step).sort((a, b) => a.ready - b.ready);
+  if (ready.length) return ready[0];
+  // новый материал небольшими порциями: следующая ещё не показанная карточка
+  const fresh = notLast.filter(it => it.i === 0);
+  if (fresh.length) return fresh[0];
+  return notLast.sort((a, b) => a.ready - b.ready)[0] || open[0];
+}
+function klFrame(body, foot) {
+  const pct = Math.min(100, KS.done / Math.max(1, KS.total) * 100);
+  $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button><div class="s-prog"><i style="width:${pct}%"></i></div></div><div class="s-body">${body}</div>${foot}`;
+  $("#sClose").onclick = () => { if (KS && KS.done && !KS.fin && !confirm("Выйти из урока? Прогресс этого урока не сохранится.")) return; const sid = KS && KS.sid; KS = null; krMenu(sid); };
+}
+function klNext() {
+  if (!KS) return; KS.step++;
+  const it = klPick(); if (!it) return klFinish();
+  KS.cur = it; KS.last = it;
+  const s = it.st[it.i], x = it.x, lbl = it.retry ? "Ещё раз" : KS.train ? "Тренировка" : "Урок";
+  if (s.k === "in") {
+    klFrame(`<div class="q-kind">${x.th ? "Теория" : "Новое"}</div><div class="card intro kl-intro">${x.intro}</div>`, `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="contBtn">Понятно</button></div></div>`);
+    $("#contBtn").onclick = () => { it.i++; it.ready = KS.step + 1; KS.done++; klNext(); }; $("#contBtn").focus({ preventScroll: true }); return;
+  }
+  if (s.k === "ch") {
+    const opts = shuffle(s.o);
+    klFrame(`<div class="q-kind">${lbl}</div><h2 class="q-title">${s.q}</h2><div class="opts two" id="opts">${opts.map((o, i) => `<button class="opt ${s.lat ? "lat-opt" : ""}" data-i="${i}"><span class="k">${i + 1}</span><span>${esc(o)}</span></button>`).join("")}</div>`,
+      `<div class="s-foot" id="foot"><div class="in">${s.h ? `<button class="btn ghost" id="hintBtn">💡 Подсказка</button><div class="hint" id="hintTxt" style="display:none;text-align:center">${esc(s.h)}</div>` : `<div class="hint" style="text-align:center">Выберите вариант</div>`}</div></div>`);
+    const hb = $("#hintBtn"); if (hb) hb.onclick = () => { hb.style.display = "none"; $("#hintTxt").style.display = ""; };
+    const box = $("#opts");
+    box.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      if (box.classList.contains("locked")) return; box.classList.add("locked");
+      const ok = s.a.includes(opts[+b.dataset.i]);
+      box.querySelectorAll(".opt").forEach((y, i) => { if (s.a.includes(opts[i])) y.classList.add("right"); else if (y === b) y.classList.add("wrong"); else y.classList.add("dim"); });
+      klFeedback(ok, `<b>${esc(s.a[0])}</b>${s.h ? `<div class="hint">${esc(s.h)}</div>` : ""}`);
+    });
+    return;
+  }
+  klFrame(`<div class="q-kind">${lbl} · письмо</div><h2 class="q-title">Напишите ответ</h2>${s.q}<div class="type-wrap"><input class="type-in" id="tin" type="text" ${s.m === "rus" ? 'lang="ru"' : 'lang="la"'} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">${s.h ? `<div class="hint">${esc(s.h)}</div>` : ""}</div>`, footCheck());
+  const inp = $("#tin"), cb = $("#checkBtn"); setTimeout(() => inp.focus(), 60);
+  inp.oninput = () => cb.disabled = !inp.value.trim();
+  const check = skip => { if (inp.readOnly) return; inp.readOnly = true; const ok = !skip && klCheckAns(s, inp.value); inp.classList.add(ok ? "right" : "wrong"); inp.blur(); klFeedback(ok, `<b class="${s.m === "rus" ? "" : "lat"}">${esc(s.a.split("|").join(" / "))}</b>`); };
+  cb.onclick = () => check(false); $("#skipBtn").onclick = () => check(true);
+  inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); e.stopPropagation(); check(false); } };
+}
+function klFeedback(ok, html) {
+  const it = KS.cur; KS.ans++;
+  if (ok) { KS.done++; if (!it.retry) KS.first++; it.i++; it.retry = false; it.ready = KS.step + 2; if (it.i >= it.st.length) it.done = true; }
+  else { KS.mist++; it.miss++; it.retry = true; it.ready = KS.step + 3; KS.total++; KS.wrong.add(it.x); }
+  const foot = $("#foot"); foot.className = "s-foot " + (ok ? "ok" : "bad");
+  foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${ok ? IC.check : IC.x}</div><div><b>${ok ? sample(["Верно", "Отлично", "Правильно"], 1)[0] : "Неверно"}</b><div class="ans">${html}</div>${!ok && it.x.ans ? `<div class="hint">${it.x.ans}</div>` : ""}</div></div>
+    <button class="btn ${ok ? "" : "bad"}" id="contBtn">Дальше</button></div>`;
+  const c = $("#contBtn"); c.onclick = klNext; c.focus({ preventScroll: true });
+}
+function klFinish() {
+  KS.fin = true;
+  const perfect = !KS.mist, xp = KS.train ? 5 + (perfect ? 3 : 0) : 10 + (perfect ? 5 : 0), firstToday = addXp(xp), d = klGet();
+  if (KS.train) { const o = d.tr[KS.sid] || { n: 0 }; d.tr[KS.sid] = { n: o.n + 1, at: Date.now() }; }
+  else { const k = KS.sid + "-" + KS.li, o = d.l[k]; d.l[k] = { n: (o ? o.n : 0) + 1, at: Date.now() }; KS.items.forEach(it => d.it[it.x.id] = 1); }
+  klSet(d);
+  const D = klData()[KS.sid], nx = KS.train ? -1 : D.lessons.findIndex((_, i) => !d.l[KS.sid + "-" + i]);
+  const acc = KS.ans ? Math.round(KS.first / KS.ans * 100) : 100, sec = Math.round((Date.now() - KS.t0) / 1000), tm = sec >= 60 ? Math.floor(sec / 60) + ":" + String(sec % 60).padStart(2, "0") : sec + " с";
+  const wrong = [...KS.wrong], st = streak();
+  klFrame(`<div class="done"><div class="seal">${IC.check}</div><h2>${KS.train ? "Тренировка завершена" : "Урок пройден"}</h2><p>${esc(KS.title)}</p>
+    <div class="done-stats"><div class="card stat"><b style="color:var(--accent)">+${xp}</b><span>XP${perfect ? " · без ошибок" : ""}</span></div><div class="card stat"><b>${acc}%</b><span>точность</span></div><div class="card stat"><b>${tm}</b><span>время</span></div></div>
+    ${firstToday ? `<div class="streak-note">${IC.flame} Серия: ${st} ${plural(st, "день", "дня", "дней")}</div>` : `<div class="muted">Сегодня: ${todayXp()} / ${S.settings.goal} XP</div>`}
+    ${wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:10px 14px"><div class="hint">Было трудно — повторите в тренировке:</div>${wrong.map(x => `<div style="margin:4px 0">${x.ans || esc(x.id)}</div>`).join("")}</div>` : ""}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="row2"><button class="btn ghost" id="klMenu">К разделу</button>${nx >= 0 ? `<button class="btn" id="klNx">Следующий урок</button>` : `<button class="btn" id="klSheet">${KS.train ? "К листу" : "Тренировка"}</button>`}</div></div></div>`);
+  const sid = KS.sid, train = KS.train;
+  $("#klMenu").onclick = () => { KS = null; krMenu(sid); };
+  const n = $("#klNx"); if (n) { n.onclick = () => klStart(sid, nx); n.focus({ preventScroll: true }); }
+  const sh = $("#klSheet"); if (sh) sh.onclick = () => { KS = null; train ? krStart(sid) : klStart(sid, -1); };
 }
 
 /* ---------- flashcards (old mode, kept) ---------- */
