@@ -309,6 +309,7 @@ h2.sec{font-size:.8rem;letter-spacing:.06em;text-transform:uppercase;color:var(-
 <div class="session hidden" id="session"></div>
 <div class="toast" id="toast"></div>
 <input type="file" id="importFile" accept=".json,application/json" class="hidden">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 <script>
 "use strict";
 const UNITS = [{"id": "u1", "title": "I склонение", "words": [["ala, ae f", "крыло"], ["aorta, ae f", "аорта"], ["apertura, ae f", "апертура, отверстие"], ["arteria, ae f", "артерия"], ["bucca, ae f", "щека"], ["bursa, ae f", "сумка"], ["clavicula, ae f", "ключица"], ["columna, ae f", "столб"], ["commissura, ae f", "спайка"], ["concha, ae f", "раковина"], ["corona, ae f", "коронка, венец"], ["costa, ae f", "ребро"], ["crista, ae f", "гребень"], ["curvatura, ae f", "кривизна"], ["fascia, ae f", "фасция"], ["fibra, ae f", "волокно"], ["fibula, ae f", "малоберцовая кость"], ["fissura, ae f", "щель"], ["flexura, ae f", "изгиб"], ["fossa, ae f", "ямка", "fossa mandibularis — нижнечелюстная ямка"], ["fovea, ae f", "ямка", "мелкая ямка: fovea centralis"], ["gingiva, ae f", "десна"], ["glandula, ae f", "железа"], ["incisura, ae f", "вырезка"], ["lamina, ae f", "пластинка"], ["linea, ae f", "линия"], ["lingua, ae f", "язык"], ["mandibula, ae f", "нижняя челюсть"], ["maxilla, ae f", "верхняя челюсть"], ["medulla, ae f", "мозговое вещество; мозг"], ["membrana, ae f", "перепонка"], ["nucha, ae f", "выя"], ["orbita, ae f", "глазница"], ["palma, ae f", "ладонь"], ["palpebra, ae f", "веко"], ["papilla, ae f", "сосочек"], ["patella, ae f", "надколенник"], ["planta, ae f", "подошва"], ["plica, ae f", "складка"], ["protuberantia, ae f", "выступ"], ["pulpa, ae f", "пульпа, мяготь"], ["raphe, es f", "шов", "шов мягких тканей: raphe palati"], ["scapula, ae f", "лопатка"], ["spina, ae f", "ость"], ["squama, ae f", "чешуя"], ["sutura, ae f", "шов", "шов между костями: sutura sagittalis"], ["tibia, ae f", "большеберцовая кость"], ["tonsilla, ae f", "миндалина"], ["trachea, ae f", "трахея"], ["trochlea, ae f", "блок"], ["tuba, ae f", "труба"], ["tunica, ae f", "оболочка"], ["ulna, ae f", "локтевая кость"], ["urethra, ae f", "мочеиспускательный канал"], ["vagina, ae f", "влагалище"], ["valva, ae f", "клапан"], ["valvula, ae f", "заслонка"], ["vena, ae f", "вена"], ["vertebra, ae f", "позвонок"], ["vesica, ae f", "пузырь"]]}, {"id": "u2", "title": "II склонение", "words": [["acromion, i n", "акромион"], ["alveolus, i m", "альвеола"], ["angulus, i m", "угол"], ["antebrachium, i n", "предплечье"], ["anus, i m", "задний проход"], ["atrium, i n", "предсердие; преддверие"], ["brachium, i n", "плечо"], ["bronchus, i m", "бронх"], ["bulbus, i m", "луковица"], ["caecum, i n", "слепая кишка"], ["calcaneus, i m", "пяточная кость"], ["carpus, i m", "запястье"], ["cavum, i n", "полость"], ["cerebellum, i n", "мозжечок"], ["cerebrum, i n", "большой мозг"], ["collum, i n", "шея, шейка"], ["colon, i n", "ободочная кишка"], ["condylus, i m", "мыщелок"], ["cranium, i n", "череп"], ["digitus, i m", "палец"], ["dorsum, i n", "спина, тыльная поверхность"], ["duodenum, i n", "двенадцатиперстная кишка"], ["encephalon, i n", "головной мозг"], ["enamelum, i n", "эмаль"], ["frenulum, i n", "уздечка"], ["fundus, i m", "дно"], ["ganglion, i n", "ганглий, нервный узел"], ["gyrus, i m", "извилина"], ["humerus, i m", "плечевая кость"], ["ileum, i n", "подвздошная кишка"], ["intestinum, i n", "кишка"], ["jejunum, i n", "тощая кишка"], ["labium, i n", "губа"], ["ligamentum, i n", "связка"], ["lobus, i m", "доля"], ["manubrium, i n", "рукоятка"], ["membrum, i n", "конечность"], ["metacarpus, i m", "пясть"], ["metatarsus, i m", "плюсна"], ["musculus, i m", "мышца"], ["nasus, i m", "нос"], ["nervus, i m", "нерв"], ["nodus, i m", "узел"], ["nucleus, i m", "ядро"], ["oculus, i m", "глаз"], ["oesophagus, i m", "пищевод"], ["organum, i n", "орган"], ["ostium, i n", "устье, отверстие"], ["ovarium, i n", "яичник"], ["palatum, i n", "нёбо"], ["peritoneum, i n", "брюшина"], ["pylorus, i m", "привратник"], ["radius, i m", "лучевая кость"], ["ramus, i m", "ветвь"], ["rectum, i n", "прямая кишка"], ["retinaculum, i n", "удерживатель"], ["segmentum, i n", "сегмент"], ["septum, i n", "перегородка"], ["skeleton, i n", "скелет"], ["spatium, i n", "пространство, промежуток"], ["sternum, i n", "грудина"], ["stratum, i n", "слой"], ["sulcus, i m", "борозда"], ["supercilium, i n", "бровь"], ["talus, i m", "таранная кость"], ["tarsus, i m", "предплюсна"], ["thymus, i m", "вилочковая железа, тимус"], ["truncus, i m", "туловище, ствол"], ["tuberculum, i n", "бугорок"], ["tympanum, i n", "барабан"], ["uterus, i m", "матка"], ["ventriculus, i m", "желудок, желудочек"], ["vestibulum, i n", "преддверие"]]}, {"id": "u3", "title": "III склонение", "words": [["abdomen, inis n", "живот"], ["apex, icis m", "верхушка"], ["articulatio, onis f", "сустав"], ["atlas, antis m", "атлант (I шейный позвонок)"], ["auris, is f", "ухо"], ["axis, is m", "ось; осевой (II шейный) позвонок"], ["basis, is f", "основание"], ["canalis, is m", "канал"], ["caput, itis n", "голова, головка"], ["cartilago, inis f", "хрящ"], ["cavitas, atis f", "полость"], ["cervix, icis f", "шейка"], ["coccyx, ygis m", "копчик"], ["cor, cordis n", "сердце"], ["corpus, oris n", "тело"], ["cortex, icis m", "кора"], ["crus, cruris n", "голень"], ["cutis, is f", "кожа"], ["dens, dentis m", "зуб"], ["extremitas, atis f", "конец"], ["femur, oris n", "бедро"], ["foramen, inis n", "отверстие"], ["fornix, icis m", "свод"], ["frons, frontis f", "лоб"], ["gaster, tris f", "желудок"], ["hepar, atis n", "печень"], ["impressio, onis f", "вдавление"], ["index, icis m", "указательный палец"], ["larynx, ngis f", "гортань"], ["lens, lentis f", "хрусталик"], ["lien, enis m", "селезёнка"], ["margo, inis m", "край"], ["meninx, ngis f", "мозговая оболочка"], ["abductor, oris m", "отводящая мышца", "musculus abductor"], ["adductor, oris m", "приводящая мышца", "musculus adductor"], ["buccinator, oris m", "щёчная мышца", "musculus buccinator"], ["corrugator, oris m", "сморщивающая мышца", "musculus corrugator"], ["depressor, oris m", "опускающая мышца", "musculus depressor"], ["extensor, oris m", "разгибатель", "musculus extensor"], ["flexor, oris m", "сгибатель", "musculus flexor"], ["levator, oris m", "поднимающая мышца", "musculus levator"], ["masseter, eris m", "жевательная мышца", "musculus masseter"], ["rotator, oris m", "вращатель", "musculus rotator"], ["tensor, oris m", "напрягатель (напрягающая мышца)", "musculus tensor"], ["occiput, itis n", "затылок"], ["os, oris n", "рот"], ["os, ossis n", "кость"], ["pancreas, atis n", "поджелудочная железа"], ["paries, etis m", "стенка"], ["pars, partis f", "часть"], ["pelvis, is f", "таз"], ["pes, pedis m", "стопа"], ["phalanx, ngis f", "фаланга"], ["pharynx, ngis m", "глотка"], ["pollex, icis m", "большой палец руки"], ["pubes, is f", "лобок"], ["pulmo, onis m", "лёгкое"], ["pyramis, idis f", "пирамида"], ["radix, icis f", "корень"], ["regio, onis f", "область"], ["ren, renis m", "почка"], ["tendo, inis m", "сухожилие"], ["thorax, acis m", "грудная клетка"], ["trochanter, eris m", "вертел"], ["tuber, eris n", "бугор"], ["tuberositas, atis f", "бугристость"], ["ureter, eris m", "мочеточник"], ["vas, vasis n", "сосуд"], ["venter, tris m", "брюшко (мышцы); живот"], ["vomer, eris m", "сошник"], ["zygoma, atis n", "скула"]]}, {"id": "u4", "title": "IV и V склонение", "words": [["arcus, us m", "дуга"], ["cornu, us n", "рог"], ["ductus, us m", "проток"], ["facies, ei f", "лицо, поверхность"], ["genu, us n", "колено"], ["hiatus, us m", "расщелина"], ["manus, us f", "кисть (руки)"], ["meatus, us m", "ход, проход"], ["processus, us m", "отросток"], ["plexus, us m", "сплетение"], ["recessus, us m", "углубление, карман"], ["sinus, us m", "пазуха"]]}, {"id": "u5", "title": "Прилагательные I–II скл.", "words": [["accessorius, a, um", "добавочный"], ["albus, a, um", "белый"], ["arteriosus, a, um", "артериальный"], ["asper, era, erum", "шероховатый"], ["caecus, a, um", "слепой"], ["calcaneus, a, um", "пяточный", "прилагательное; ср. calcaneus, i m — пяточная кость"], ["caninus, a, um", "клыковый", "dens caninus — клык"], ["cardiacus, a, um", "сердечный"], ["cavernosus, a, um", "пещеристый"], ["cavus, a, um", "полый"], ["coccygeus, a, um", "копчиковый"], ["cutaneus, a, um", "кожный"], ["deciduus, a, um", "молочный (выпадающий)", "dens deciduus — молочный зуб"], ["dexter, tra, trum", "правый"], ["externus, a, um", "наружный"], ["fibrosus, a, um", "фиброзный"], ["flavus, a, um", "жёлтый"], ["gastricus, a, um", "желудочный"], ["hepaticus, a, um", "печёночный"], ["hyoideus, a, um", "подъязычный", "os hyoideum — подъязычная кость"], ["hypoglossus, a, um", "подъязычный", "nervus hypoglossus — подъязычный нерв"], ["iliacus, a, um", "подвздошный"], ["incisivus, a, um", "резцовый"], ["internus, a, um", "внутренний"], ["ischiadicus, a, um", "седалищный"], ["laryngeus, a, um", "гортанный"], ["latus, a, um", "широкий"], ["liber, era, erum", "свободный"], ["longus, a, um", "длинный"], ["lymphaticus, a, um", "лимфатический"], ["magnus, a, um", "большой"], ["mastoideus, a, um", "сосцевидный"], ["maximus, a, um", "наибольший"], ["medianus, a, um", "срединный"], ["medius, a, um", "средний"], ["membranaceus, a, um", "перепончатый"], ["minimus, a, um", "наименьший"], ["mucosus, a, um", "слизистый"], ["nutricius, a, um", "питательный"], ["obliquus, a, um", "косой"], ["oblongatus, a, um", "продолговатый"], ["oesophageus, a, um", "пищеводный"], ["ophthalmicus, a, um", "глазной"], ["opticus, a, um", "зрительный"], ["osseus, a, um", "костный"], ["palatinus, a, um", "нёбный"], ["parvus, a, um", "малый"], ["pelvicus, a, um", "тазовый"], ["petrosus, a, um", "каменистый"], ["phalangeus, a, um", "фаланговый"], ["pharyngeus, a, um", "глоточный"], ["profundus, a, um", "глубокий"], ["proprius, a, um", "собственный"], ["pterygoideus, a, um", "крыловидный"], ["pyloricus, a, um", "привратниковый"], ["rectus, a, um", "прямой"], ["ruber, bra, brum", "красный"], ["sacer, cra, crum", "священный", "os sacrum — крестец"], ["scaphoideus, a, um", "ладьевидный"], ["serosus, a, um", "серозный"], ["serotinus, a, um", "поздний", "dens serotinus — зуб мудрости"], ["sinister, tra, trum", "левый"], ["spinosus, a, um", "остистый"], ["squamosus, a, um", "чешуйчатый"], ["styloideus, a, um", "шиловидный"], ["stylopharyngeus, a, um", "шилоглоточный"], ["supremus, a, um", "наивысший"], ["thoracicus, a, um", "грудной"], ["thyroideus, a, um", "щитовидный"], ["transversus, a, um", "поперечный"], ["tympanicus, a, um", "барабанный"], ["urinarius, a, um", "мочевой"], ["uterinus, a, um", "маточный"], ["venosus, a, um", "венозный"], ["xiphoideus, a, um", "мечевидный"], ["zygomaticus, a, um", "скуловой"]]}, {"id": "u6", "title": "Прилагательные III скл.", "words": [["alaris, e", "крыльный"], ["anterior, ius", "передний"], ["articularis, e", "суставной"], ["auricularis, e", "ушной"], ["biceps, cipitis", "двуглавый"], ["biliaris, e", "желчный"], ["brevis, e", "короткий"], ["cerebralis, e", "мозговой"], ["cervicalis, e", "шейный"], ["communis, e", "общий"], ["dentalis, e", "зубной"], ["distalis, e", "дистальный"], ["ethmoidalis, e", "решётчатый"], ["facialis, e", "лицевой"], ["frontalis, e", "лобный"], ["genitalis, e", "половой"], ["inferior, ius", "нижний"], ["jugularis, e", "яремный"], ["lacrimalis, e", "слёзный"], ["lateralis, e", "латеральный"], ["longitudinalis, e", "продольный"], ["lumbalis, e", "поясничный"], ["major, jus", "большой"], ["medialis, e", "медиальный"], ["mentalis, e", "подбородочный"], ["minor, us", "малый"], ["mollis, e", "мягкий"], ["nasalis, e", "носовой"], ["occipitalis, e", "затылочный"], ["parietalis, e", "теменной"], ["peritonealis, e", "брюшинный"], ["posterior, ius", "задний"], ["premolaris, e", "премолярный (малый коренной)"], ["pulmonalis, e", "лёгочный"], ["sacralis, e", "крестцовый"], ["simplex, icis", "простой"], ["sphenoidalis, e", "клиновидный"], ["spinalis, e", "спинномозговой"], ["sublingualis, e", "подъязычный", "glandula sublingualis — подъязычная железа"], ["superficialis, e", "поверхностный"], ["superior, ius", "верхний"], ["temporalis, e", "височный"], ["tenuis, e", "тонкий"]]}, {"id": "u7", "title": "Устойчивые сочетания", "words": [["articulatio coxae", "тазобедренный сустав"], ["atrium cordis", "предсердие (сердца)"], ["bulbus oculi", "глазное яблоко"], ["medulla ossium", "костный мозг"], ["medulla spinalis", "спинной мозг"], ["dura mater", "твёрдая мозговая оболочка"], ["pia mater", "мягкая мозговая оболочка"], ["arachnoidea mater", "паутинная мозговая оболочка"], ["os coxae", "тазовая кость"], ["os ilii", "подвздошная кость"], ["os ischii", "седалищная кость"], ["pelvis renalis", "почечная лоханка"], ["vena portae", "воротная вена"]]}];
@@ -353,7 +354,81 @@ const KEY = "latAnat.v2";
 let storageOK = true;
 const mem = {};
 function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { storageOK = false; return mem[k] ?? null; } }
-function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } }
+function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } CS.queue(k); }
+/* ---------- Telegram CloudStorage sync (only inside Telegram WebApp ≥ 6.9) ---------- */
+const CS = (() => {
+  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest"];
+  const CHUNK = 4000;
+  const dirty = new Set(); let timer = null, ready = false;
+  const tg = () => { try { return window.Telegram && window.Telegram.WebApp; } catch (e) { return null; } };
+  function api() {
+    const w = tg(); if (!w || !w.initData || !w.CloudStorage) return null;
+    try { if (w.isVersionAtLeast && !w.isVersionAtLeast("6.9")) return null; } catch (e) { return null; }
+    return w.CloudStorage;
+  }
+  const ck = k => k.replace(/[^A-Za-z0-9_-]/g, "_").slice(0, 120);
+  const p = (fn, ...a) => new Promise((res, rej) => { try { fn(...a, (err, v) => err ? rej(err) : res(v)); } catch (e) { rej(e); } });
+  async function read(c, k) {
+    const b = ck(k), n = parseInt(await p(c.getItem.bind(c), b + "_n"), 10);
+    if (!(n > 0)) return null;
+    const names = Array.from({ length: n }, (_, i) => b + "_" + i);
+    const got = await p(c.getItems.bind(c), names);
+    if (!got || names.some(x => typeof got[x] !== "string")) throw new Error("incomplete");
+    return names.map(x => got[x]).join("");
+  }
+  async function write(c, k, v) {
+    if (!v) return; // never push empty data
+    const b = ck(k), parts = [];
+    for (let i = 0; i < v.length; i += CHUNK) parts.push(v.slice(i, i + CHUNK));
+    const old = parseInt(await p(c.getItem.bind(c), b + "_n"), 10) || 0;
+    for (let i = 0; i < parts.length; i++) await p(c.setItem.bind(c), b + "_" + i, parts[i]);
+    await p(c.setItem.bind(c), b + "_n", String(parts.length)); // count last → readers never see a half-written value
+    if (old > parts.length) await p(c.removeItems.bind(c), Array.from({ length: old - parts.length }, (_, i) => b + "_" + (parts.length + i)));
+    return true;
+  }
+  const J = x => { try { return x ? JSON.parse(x) : null; } catch (e) { return null; } };
+  function score(d) { if (!d) return -1; return (d.xp || 0) * 1000 + Object.keys(d.words || {}).length; }
+  // returns merged string or null (= keep local)
+  function merge(k, loc, cld) {
+    const L = J(loc), C = J(cld);
+    if (!C) return null; if (!L) return cld;
+    if (k === "latAnat.v2") return score(C) > score(L) ? cld : null;
+    if (k === "latAnat.finalTest") {
+      const out = JSON.parse(JSON.stringify(L)); let ch = false;
+      for (const u in C) for (const sh in C[u] || {}) {
+        const c = C[u][sh], o = out[u] && out[u][sh];
+        if (c && c.n && (!o || c.ok / c.n > o.ok / o.n)) { (out[u] = out[u] || {})[sh] = c; ch = true; }
+      }
+      return ch ? JSON.stringify(out) : null;
+    }
+    return null;
+  }
+  async function flush() {
+    clearTimeout(timer); timer = null;
+    const c = api(); if (!c || !ready) return;
+    const ks = [...dirty]; dirty.clear();
+    for (const k of ks) { const v = lsGet(k); try { if (v) await write(c, k, v); } catch (e) { dirty.add(k); } }
+  }
+  function queue(k) {
+    if (!SYNC_KEYS.includes(k) || !api()) return;
+    dirty.add(k); if (ready) { clearTimeout(timer); timer = setTimeout(flush, 1500); }
+  }
+  async function init(onChange) {
+    const c = api(); if (!c) return false;
+    let changed = false;
+    for (const k of SYNC_KEYS) {
+      let cld; try { cld = await read(c, k); } catch (e) { return false; } // cloud unreadable → no sync, no overwrite
+      const loc = lsGet(k), m = merge(k, loc, cld);
+      if (m != null && m !== loc) { try { localStorage.setItem(k, m); } catch (e) { mem[k] = m; } changed = true; }
+      const now = lsGet(k); if (now && now !== cld) dirty.add(k);
+    }
+    ready = true; await flush();
+    if (changed && onChange) onChange();
+    return changed;
+  }
+  return { init, queue, flush, merge, _ck: ck, _write: write, _read: read, _ready: () => ready };
+})();
+
 (function probe() { try { localStorage.setItem("__t", "1"); localStorage.removeItem("__t"); } catch (e) { storageOK = false; } })();
 
 function freshState() {
@@ -1232,8 +1307,11 @@ if ("serviceWorker" in navigator && (location.protocol === "https:" || location.
   });
 }
 
-document.addEventListener("visibilitychange", () => { if (document.hidden) save(); });
+document.addEventListener("visibilitychange", () => { if (document.hidden) { save(); CS.flush(); } });
+window.addEventListener("pagehide", () => CS.flush());
 load(); applyTheme(); render();
+try { const w = window.Telegram && window.Telegram.WebApp; if (w && w.ready) w.ready(); } catch (e) {}
+CS.init(() => { if (document.querySelector(".session:not(.hidden)")) return; load(); applyTheme(); render(); toast("Прогресс синхронизирован"); });
 </script>
 </body>
 </html>
