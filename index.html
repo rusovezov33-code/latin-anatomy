@@ -358,7 +358,7 @@ function lsGet(k) { try { return localStorage.getItem(k); } catch (e) { storageO
 function lsSet(k, v) { try { localStorage.setItem(k, v); } catch (e) { storageOK = false; mem[k] = v; } CS.queue(k); }
 /* ---------- Telegram CloudStorage sync (only inside Telegram WebApp ≥ 6.9) ---------- */
 const CS = (() => {
-  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest", "latAnat.krPrep", "latAnat.krLearn"];
+  const SYNC_KEYS = ["latAnat.v2", "latAnat.finalTest", "latAnat.krPrep", "latAnat.krLearn", "latAnat.lex2"];
   const CHUNK = 4000;
   const dirty = new Set(); let timer = null, ready = false;
   const tg = () => { try { return window.Telegram && window.Telegram.WebApp; } catch (e) { return null; } };
@@ -411,6 +411,12 @@ const CS = (() => {
       const out = { l: Object.assign({}, L.l), it: Object.assign({}, L.it), tr: Object.assign({}, L.tr) }; let ch = false;
       for (const g of ["l", "tr"]) for (const id in (C[g] || {})) { const c = C[g][id], o = out[g][id]; if (c && (!o || (c.n || 0) > (o.n || 0))) { out[g][id] = { n: Math.max(c.n || 0, o ? o.n || 0 : 0), at: Math.max(c.at || 0, o ? o.at || 0 : 0) }; ch = true; } }
       for (const id in (C.it || {})) if (C.it[id] && !out.it[id]) { out.it[id] = 1; ch = true; }
+      return ch ? JSON.stringify(out) : null;
+    }
+    if (k === "latAnat.lex2") { // union of lessons, best sheet score — nothing is ever lost
+      const out = { l: Object.assign({}, L.l), best: Object.assign({}, L.best) }; let ch = false;
+      for (const id in (C.l || {})) { const c = C.l[id], o = out.l[id]; if (c && (!o || (c.n || 0) > (o.n || 0))) { out.l[id] = { n: Math.max(c.n || 0, o ? o.n || 0 : 0), at: Math.max(c.at || 0, o ? o.at || 0 : 0) }; ch = true; } }
+      for (const id in (C.best || {})) { const c = C.best[id], o = out.best[id]; if (c && c.n && (!o || !o.n || c.ok / c.n > o.ok / o.n)) { out.best[id] = c; ch = true; } }
       return ch ? JSON.stringify(out) : null;
     }
     return null;
@@ -673,6 +679,7 @@ function renderLearn() {
         ${due ? `<button class="btn" id="goReview">${IC.repeat} Повторить ${dueTxt}</button>` : ""}
         ${nx ? `<button class="btn ${due ? "ghost" : ""}" id="goNext">${IC.play} ${due ? "Новый урок" : "Продолжить"}</button>` : ""}
         ${due ? "" : `<button class="btn ghost" id="goReview" ${seenN ? "" : "disabled"}>${IC.repeat} Повторить слабые слова</button>`}
+        <button class="btn" id="goLex">📖 Лексминимум: 1–2 склонение (к 10.11)</button>
         <button class="btn" id="goKr">🎯 Подготовка к КР</button>
         <button class="btn ghost" id="goWritten">✍ Письменно (без вариантов) · словосочетания к КР</button>
       </div>
@@ -695,7 +702,7 @@ function renderLearn() {
   h += `</div></div></div>`;
   $("#tab-learn").innerHTML = h;
   const gn = $("#goNext"); if (gn) gn.onclick = () => startLesson(nx[0], nx[1]);
-  const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten; const gk = $("#goKr"); if (gk) gk.onclick = startKr;
+  const gr = $("#goReview"); if (gr) gr.onclick = startReview; const gw = $("#goWritten"); if (gw) gw.onclick = startWritten; const gk = $("#goKr"); if (gk) gk.onclick = startKr; const gl = $("#goLex"); if (gl) gl.onclick = startLex;
   $("#tab-learn").querySelectorAll("[data-ft]").forEach(b => b.onclick = () => startFinal(+b.dataset.ft));
   $("#tab-learn").querySelectorAll("[data-l]").forEach(b => b.onclick = () => { const [a, c] = b.dataset.l.split(",").map(Number); startLesson(a, c); });
 }
@@ -1715,6 +1722,285 @@ function klFinish() {
   $("#klMenu").onclick = () => { KS = null; krMenu(sid); };
   const n = $("#klNx"); if (n) { n.onclick = () => klStart(sid, nx); n.focus({ preventScroll: true }); }
   const sh = $("#klSheet"); if (sh) sh.onclick = () => { KS = null; train ? krStart(sid) : klStart(sid, -1); };
+}
+
+const LX_W = [{"id": "m:angulus", "lat": "angulus", "h": ["angulus"], "d": 2, "g": "m", "ok": ["m"], "rus": "угол", "grp": "m", "nt": ""}, {"id": "m:anus", "lat": "anus", "h": ["anus"], "d": 2, "g": "m", "ok": ["m"], "rus": "задний проход", "grp": "m", "nt": ""}, {"id": "m:bronchus", "lat": "bronchus", "h": ["bronchus"], "d": 2, "g": "m", "ok": ["m"], "rus": "бронх", "grp": "m", "nt": ""}, {"id": "m:bulbus", "lat": "bulbus", "h": ["bulbus"], "d": 2, "g": "m", "ok": ["m"], "rus": "луковица", "grp": "m", "nt": ""}, {"id": "m:calcaneus", "lat": "calcaneus", "h": ["calcaneus"], "d": 2, "g": "m", "ok": ["m"], "rus": "пяточная кость", "grp": "m", "nt": ""}, {"id": "m:carpus", "lat": "carpus", "h": ["carpus"], "d": 2, "g": "m", "ok": ["m"], "rus": "запястье", "grp": "m", "nt": ""}, {"id": "m:condylus", "lat": "condylus", "h": ["condylus"], "d": 2, "g": "m", "ok": ["m"], "rus": "мыщелок", "grp": "m", "nt": ""}, {"id": "m:digitus", "lat": "digitus", "h": ["digitus"], "d": 2, "g": "m", "ok": ["m"], "rus": "палец", "grp": "m", "nt": ""}, {"id": "m:fundus", "lat": "fundus", "h": ["fundus"], "d": 2, "g": "m", "ok": ["m"], "rus": "дно", "grp": "m", "nt": ""}, {"id": "m:gyrus", "lat": "gyrus", "h": ["gyrus"], "d": 2, "g": "m", "ok": ["m"], "rus": "извилина", "grp": "m", "nt": ""}, {"id": "m:humerus", "lat": "humerus", "h": ["humerus"], "d": 2, "g": "m", "ok": ["m"], "rus": "плечевая кость", "grp": "m", "nt": ""}, {"id": "m:lobus", "lat": "lobus", "h": ["lobus"], "d": 2, "g": "m", "ok": ["m"], "rus": "доля", "grp": "m", "nt": ""}, {"id": "m:metacarpus", "lat": "metacarpus", "h": ["metacarpus"], "d": 2, "g": "m", "ok": ["m"], "rus": "пясть", "grp": "m", "nt": ""}, {"id": "m:metatarsus", "lat": "metatarsus", "h": ["metatarsus"], "d": 2, "g": "m", "ok": ["m"], "rus": "плюсна", "grp": "m", "nt": ""}, {"id": "m:musculus", "lat": "musculus", "h": ["musculus"], "d": 2, "g": "m", "ok": ["m"], "rus": "мышца", "grp": "m", "nt": ""}, {"id": "m:nasus", "lat": "nasus", "h": ["nasus"], "d": 2, "g": "m", "ok": ["m"], "rus": "нос", "grp": "m", "nt": ""}, {"id": "m:nervus", "lat": "nervus", "h": ["nervus"], "d": 2, "g": "m", "ok": ["m"], "rus": "нерв", "grp": "m", "nt": ""}, {"id": "m:nodus", "lat": "nodus", "h": ["nodus"], "d": 2, "g": "m", "ok": ["m"], "rus": "узел", "grp": "m", "nt": ""}, {"id": "m:nucleus", "lat": "nucleus", "h": ["nucleus"], "d": 2, "g": "m", "ok": ["m"], "rus": "ядро", "grp": "m", "nt": ""}, {"id": "m:oculus", "lat": "oculus", "h": ["oculus"], "d": 2, "g": "m", "ok": ["m"], "rus": "глаз", "grp": "m", "nt": ""}, {"id": "m:oesophagus", "lat": "oesophagus", "h": ["oesophagus"], "d": 2, "g": "m", "ok": ["m"], "rus": "пищевод", "grp": "m", "nt": ""}, {"id": "m:pylorus", "lat": "pylorus", "h": ["pylorus"], "d": 2, "g": "m", "ok": ["m"], "rus": "привратник", "grp": "m", "nt": ""}, {"id": "m:radius", "lat": "radius", "h": ["radius"], "d": 2, "g": "m", "ok": ["m"], "rus": "лучевая кость", "grp": "m", "nt": ""}, {"id": "m:ramus", "lat": "ramus", "h": ["ramus"], "d": 2, "g": "m", "ok": ["m"], "rus": "ветвь", "grp": "m", "nt": ""}, {"id": "m:sulcus", "lat": "sulcus", "h": ["sulcus"], "d": 2, "g": "m", "ok": ["m"], "rus": "борозда", "grp": "m", "nt": ""}, {"id": "m:talus", "lat": "talus", "h": ["talus"], "d": 2, "g": "m", "ok": ["m"], "rus": "таранная кость", "grp": "m", "nt": ""}, {"id": "m:tarsus", "lat": "tarsus", "h": ["tarsus"], "d": 2, "g": "m", "ok": ["m"], "rus": "предплюсна", "grp": "m", "nt": ""}, {"id": "m:thymus", "lat": "thymus", "h": ["thymus"], "d": 2, "g": "m", "ok": ["m"], "rus": "вилочковая железа, тимус", "grp": "m", "nt": "У преподавателя: «вилочковая железа.тимус» — точку заменили запятой."}, {"id": "m:truncus", "lat": "truncus", "h": ["truncus"], "d": 2, "g": "m", "ok": ["m"], "rus": "туловище, ствол", "grp": "m", "nt": "У преподавателя: «туловище. ствол» — точку заменили запятой."}, {"id": "m:uterus", "lat": "uterus", "h": ["uterus"], "d": 2, "g": "m", "ok": ["m"], "rus": "матка", "grp": "m", "nt": ""}, {"id": "m:ventriculus", "lat": "ventriculus", "h": ["ventriculus"], "d": 2, "g": "m", "ok": ["m"], "rus": "желудок, желудочек", "grp": "m", "nt": "⚠ У преподавателя два значения: желудок и желудочек (сердца, мозга). Засчитываются оба."}, {"id": "n:supercilium", "lat": "supercilium", "h": ["supercilium"], "d": 2, "g": "n", "ok": ["n"], "rus": "бровь", "grp": "n", "nt": "⚠ У преподавателя это слово стоит в списке мужского рода, но помечено «i n», и повторено в среднем роде. Слово среднего рода (n), как в пометке."}, {"id": "n:atrium", "lat": "atrium", "h": ["atrium"], "d": 2, "g": "n", "ok": ["n"], "rus": "преддверие", "grp": "n", "nt": "⚠ У преподавателя atrium и vestibulum оба — «преддверие». Если просят перевести «преддверие», засчитывается любое."}, {"id": "n:brachium", "lat": "brachium", "h": ["brachium"], "d": 2, "g": "n", "ok": ["n"], "rus": "плечо", "grp": "n", "nt": ""}, {"id": "n:caecum", "lat": "c(a)ecum", "h": ["caecum", "cecum"], "d": 2, "g": "n", "ok": ["n"], "rus": "слепая кишка", "grp": "n", "nt": "Пишут и caecum, и cecum — засчитываются оба."}, {"id": "n:cavum", "lat": "cavum", "h": ["cavum"], "d": 2, "g": "n", "ok": ["n"], "rus": "полость", "grp": "n", "nt": ""}, {"id": "n:cerebellum", "lat": "cerebellum", "h": ["cerebellum"], "d": 2, "g": "n", "ok": ["n"], "rus": "мозжечок", "grp": "n", "nt": ""}, {"id": "n:cerebrum", "lat": "cerebrum", "h": ["cerebrum"], "d": 2, "g": "n", "ok": ["n"], "rus": "большой (головной) мозг", "grp": "n", "nt": "Не путайте: cerebrum — большой (головной) мозг, encephalon — головной мозг (у преподавателя)."}, {"id": "n:collum", "lat": "collum", "h": ["collum"], "d": 2, "g": "n", "ok": ["n"], "rus": "шея, шейка", "grp": "n", "nt": ""}, {"id": "n:colon", "lat": "colon", "h": ["colon"], "d": 2, "g": "n", "ok": ["n"], "rus": "ободочная кишка", "grp": "n", "nt": "Греческое слово на -on, среднего рода (пособие, с. 15)."}, {"id": "n:cranium", "lat": "cranium", "h": ["cranium"], "d": 2, "g": "n", "ok": ["n"], "rus": "череп", "grp": "n", "nt": ""}, {"id": "n:dorsum", "lat": "dorsum", "h": ["dorsum"], "d": 2, "g": "n", "ok": ["n"], "rus": "спина, тыльная поверхность", "grp": "n", "nt": ""}, {"id": "n:duodenum", "lat": "duodenum", "h": ["duodenum"], "d": 2, "g": "n", "ok": ["n"], "rus": "12-перстная кишка", "grp": "n", "nt": ""}, {"id": "n:encephalon", "lat": "encephalon", "h": ["encephalon"], "d": 2, "g": "n", "ok": ["n"], "rus": "головной мозг", "grp": "n", "nt": "Греческое слово на -on, среднего рода (пособие, с. 15)."}, {"id": "n:enamelum", "lat": "enamelum", "h": ["enamelum"], "d": 2, "g": "n", "ok": ["n"], "rus": "эмаль", "grp": "n", "nt": ""}, {"id": "n:frenulum", "lat": "frenulum", "h": ["frenulum"], "d": 2, "g": "n", "ok": ["n"], "rus": "уздечка", "grp": "n", "nt": ""}, {"id": "n:ganglion", "lat": "ganglion", "h": ["ganglion"], "d": 2, "g": "n", "ok": ["n"], "rus": "ганглий, нервный узел", "grp": "n", "nt": "Греческое слово на -on, среднего рода (пособие, с. 15)."}, {"id": "n:ileum", "lat": "ileum", "h": ["ileum"], "d": 2, "g": "n", "ok": ["n"], "rus": "подвздошная кишка", "grp": "n", "nt": ""}, {"id": "n:intestinum", "lat": "intestinum", "h": ["intestinum"], "d": 2, "g": "n", "ok": ["n"], "rus": "кишка", "grp": "n", "nt": ""}, {"id": "n:jejunum", "lat": "jejunum", "h": ["jejunum"], "d": 2, "g": "n", "ok": ["n"], "rus": "тощая кишка", "grp": "n", "nt": ""}, {"id": "n:labium", "lat": "labium", "h": ["labium"], "d": 2, "g": "n", "ok": ["n"], "rus": "губа", "grp": "n", "nt": ""}, {"id": "n:ligamentum", "lat": "ligamentum", "h": ["ligamentum"], "d": 2, "g": "n", "ok": ["n"], "rus": "связка", "grp": "n", "nt": ""}, {"id": "n:manubrium", "lat": "manubrium", "h": ["manubrium"], "d": 2, "g": "n", "ok": ["n"], "rus": "рукоятка", "grp": "n", "nt": ""}, {"id": "n:membrum", "lat": "membrum", "h": ["membrum"], "d": 2, "g": "n", "ok": ["n"], "rus": "конечность", "grp": "n", "nt": ""}, {"id": "n:organon", "lat": "organon (organum)", "h": ["organon", "organum"], "d": 2, "g": "n", "ok": ["n"], "rus": "орган", "grp": "n", "nt": "Две формы: organon (греч., на -on) и organum — засчитываются обе."}, {"id": "n:ostium", "lat": "ostium", "h": ["ostium"], "d": 2, "g": "n", "ok": ["n"], "rus": "устье, отверстие", "grp": "n", "nt": ""}, {"id": "n:ovarium", "lat": "ovarium", "h": ["ovarium"], "d": 2, "g": "n", "ok": ["n"], "rus": "яичник", "grp": "n", "nt": ""}, {"id": "n:palatum", "lat": "palatum", "h": ["palatum"], "d": 2, "g": "m", "ok": ["m", "n"], "rus": "нёбо", "grp": "n", "nt": "⚠ У преподавателя записано «palatum, i m», но по правилу пособия (с. 15) слова 2 скл. на -um — среднего рода (n). Засчитывается и m, и n; уточните у преподавателя."}, {"id": "n:peritonaeum", "lat": "periton(a)eum", "h": ["peritonaeum", "peritoneum"], "d": 2, "g": "n", "ok": ["n"], "rus": "брюшина", "grp": "n", "nt": "Пишут и peritonaeum, и peritoneum — засчитываются оба."}, {"id": "n:rectum", "lat": "rectum", "h": ["rectum"], "d": 2, "g": "n", "ok": ["n"], "rus": "прямая кишка", "grp": "n", "nt": ""}, {"id": "n:retinaculum", "lat": "retinaculum", "h": ["retinaculum"], "d": 2, "g": "n", "ok": ["n"], "rus": "удерживатель", "grp": "n", "nt": ""}, {"id": "n:segmentum", "lat": "segmentum", "h": ["segmentum"], "d": 2, "g": "n", "ok": ["n"], "rus": "сегмент", "grp": "n", "nt": ""}, {"id": "n:septum", "lat": "septum", "h": ["septum"], "d": 2, "g": "n", "ok": ["n"], "rus": "перегородка", "grp": "n", "nt": ""}, {"id": "n:skeleton", "lat": "skeleton", "h": ["skeleton"], "d": 2, "g": "n", "ok": ["n"], "rus": "скелет", "grp": "n", "nt": "Греческое слово на -on, среднего рода (пособие, с. 15)."}, {"id": "n:spatium", "lat": "spatium", "h": ["spatium"], "d": 2, "g": "n", "ok": ["n"], "rus": "пространство, промежуток", "grp": "n", "nt": ""}, {"id": "n:sternum", "lat": "sternum", "h": ["sternum"], "d": 2, "g": "n", "ok": ["n"], "rus": "грудина", "grp": "n", "nt": ""}, {"id": "n:stratum", "lat": "stratum", "h": ["stratum"], "d": 2, "g": "n", "ok": ["n"], "rus": "слой", "grp": "n", "nt": ""}, {"id": "n:tuberculum", "lat": "tuberculum", "h": ["tuberculum"], "d": 2, "g": "n", "ok": ["n"], "rus": "бугорок", "grp": "n", "nt": ""}, {"id": "n:tympanum", "lat": "tympanum", "h": ["tympanum"], "d": 2, "g": "n", "ok": ["n"], "rus": "барабан", "grp": "n", "nt": ""}, {"id": "n:vestibulum", "lat": "vestibulum", "h": ["vestibulum"], "d": 2, "g": "n", "ok": ["n"], "rus": "преддверие", "grp": "n", "nt": "⚠ У преподавателя atrium и vestibulum оба — «преддверие». Если просят перевести «преддверие», засчитывается любое."}, {"id": "f:costa", "lat": "costa", "h": ["costa"], "d": 1, "g": "f", "ok": ["f"], "rus": "ребро", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:tuba", "lat": "tuba", "h": ["tuba"], "d": 1, "g": "f", "ok": ["f"], "rus": "труба", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:tunica", "lat": "tunica", "h": ["tunica"], "d": 1, "g": "f", "ok": ["f"], "rus": "оболочка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:flexura", "lat": "flexura", "h": ["flexura"], "d": 1, "g": "f", "ok": ["f"], "rus": "изгиб", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:fissura", "lat": "fissura", "h": ["fissura"], "d": 1, "g": "f", "ok": ["f"], "rus": "щель", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:vena", "lat": "vena", "h": ["vena"], "d": 1, "g": "f", "ok": ["f"], "rus": "вена", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:arteria", "lat": "arteria", "h": ["arteria"], "d": 1, "g": "f", "ok": ["f"], "rus": "артерия", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:bucca", "lat": "bucca", "h": ["bucca"], "d": 1, "g": "f", "ok": ["f"], "rus": "щека", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:vagina", "lat": "vagina", "h": ["vagina"], "d": 1, "g": "f", "ok": ["f"], "rus": "влагалище", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:scapula", "lat": "scapula", "h": ["scapula"], "d": 1, "g": "f", "ok": ["f"], "rus": "лопатка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:lingua", "lat": "lingua", "h": ["lingua"], "d": 1, "g": "f", "ok": ["f"], "rus": "язык", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:plica", "lat": "plica", "h": ["plica"], "d": 1, "g": "f", "ok": ["f"], "rus": "складка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:bursa", "lat": "bursa", "h": ["bursa"], "d": 1, "g": "f", "ok": ["f"], "rus": "сумка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:incisura", "lat": "incisura", "h": ["incisura"], "d": 1, "g": "f", "ok": ["f"], "rus": "вырезка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:fossa", "lat": "fossa", "h": ["fossa"], "d": 1, "g": "f", "ok": ["f"], "rus": "ямка", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:patella", "lat": "patella", "h": ["patella"], "d": 1, "g": "f", "ok": ["f"], "rus": "надколенник", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}, {"id": "f:vertebra", "lat": "vertebra", "h": ["vertebra"], "d": 1, "g": "f", "ok": ["f"], "rus": "позвонок", "grp": "f", "nt": "Слово 1 скл. из пособия Провоторовой (лексический минимум, с. 13–14)."}];
+/* ---------- 📖 Лексминимум: 1–2 склонение (к 10.11) — слова из задания преподавателя (docx), окончания и правила — пособие Провоторовой (РУДН 2021) ---------- */
+const LX_KEY = "latAnat.lex2"; // { l: {lessonId: {n, at}}, best: {sheetId: {ok, n}} } — new key, old keys untouched
+function lxGet() { try { const d = JSON.parse(lsGet(LX_KEY) || "{}") || {}; return { l: d.l || {}, best: d.best || {} }; } catch (e) { return { l: {}, best: {} }; } }
+function lxSet(d) { lsSet(LX_KEY, JSON.stringify(d)); }
+const LX_BY = Object.fromEntries(LX_W.map(w => [w.lat.split(" ")[0].replace(/[()]/g, "").replace("caecum", "caecum"), w]));
+LX_W.forEach(w => w.h.forEach(h => LX_BY[h] = w));
+const LX_GR = { m: "m — мужской род", n: "n — средний род", f: "f — женский род" };
+function lxDict(w) { return `${w.lat}, ${w.d === 1 ? "ae" : "i"} ${w.g}`; }
+// формы: ns, gs, np, gp (пособие с. 12 и 15)
+function lxForm(h, w, f) {
+  if (w.d === 1) { const s = h.slice(0, -1); return { ns: h, gs: s + "ae", np: s + "ae", gp: s + "arum" }[f]; }
+  const s = h.slice(0, -2), n = w.g === "n" || w.lat === "palatum";
+  return { ns: h, gs: s + "i", np: s + (n ? "a" : "i"), gp: s + "orum" }[f];
+}
+const lxForms = (w, f) => w.h.map(h => lxForm(h, w, f));
+const LX_FN = { ns: "Nom. Sg.", gs: "Gen. Sg.", np: "Nom. Pl.", gp: "Gen. Pl." };
+const LX_FQ = { ns: "что? (ед.)", gs: "чего? (ед.)", np: "что? (мн.)", gp: "чего? (мн.)" };
+const LX_END = { 1: { ns: "-a", gs: "-ae", np: "-ae", gp: "-arum" }, m: { ns: "-us", gs: "-i", np: "-i", gp: "-orum" }, n: { ns: "-um, -on", gs: "-i", np: "-a", gp: "-orum" } };
+const lxEK = w => w.d === 1 ? 1 : (w.g === "n" || w.lat === "palatum") ? "n" : "m";
+const LX_TBL = `<table class="kl-t"><tr><th></th><th>Nom. Sg.<br><small>что?</small></th><th>Gen. Sg.<br><small>чего?</small></th><th>Nom. Pl.<br><small>что?</small></th><th>Gen. Pl.<br><small>чего?</small></th></tr>
+<tr><th>1 скл. (f)</th><td>-a</td><td>-ae</td><td>-ae</td><td>-arum</td></tr><tr><th>2 скл. m</th><td>-us</td><td>-i</td><td>-i</td><td>-orum</td></tr><tr><th>2 скл. n</th><td>-um, -on</td><td>-i</td><td>-a</td><td>-orum</td></tr></table>`;
+// словосочетания преподавателя: [рус, "лемма:форма ...", латинский ответ (для проверки), альтернативы-ответы, ⚠]
+const LX_RL = [
+  ["ветвь нерва", "ramus:ns nervus:gs"], ["ямка черепа", "fossa:ns cranium:gs"], ["ствол головного мозга", "truncus:ns encephalon:gs", "truncus cerebri", "⚠ «головной мозг» у преподавателя — encephalon (а cerebrum — «большой (головной) мозг»), поэтому засчитывается и truncus cerebri"],
+  ["вырезка грудины", "incisura:ns sternum:gs"], ["связка матки", "ligamentum:ns uterus:gs"], ["связка надколенника", "ligamentum:ns patella:gs"], ["борозда языка", "sulcus:ns lingua:gs"], ["нерв плеча", "nervus:ns brachium:gs"],
+  ["ветви нервов", "ramus:np nervus:gp"], ["связки лопаток", "ligamentum:np scapula:gp"], ["нервы плеч", "nervus:np brachium:gp"], ["сумки мышц", "bursa:np musculus:gp"],
+  ["складки прямой кишки", "plica:np rectum:gs"], ["губы матки", "labium:np uterus:gs"], ["луковицы вен", "bulbus:np vena:gp"], ["скелет конечностей", "skeleton:ns membrum:gp"]];
+const LX_LR = [
+  ["collum:ns costa:gs", "шейка ребра"], ["septum:ns nasus:gs", "перегородка носа"], ["ostium:ns tuba:gs", "устье трубы|отверстие трубы"], ["tunica:ns oesophagus:gs", "оболочка пищевода"],
+  ["flexura:ns rectum:gs", "изгиб прямой кишки"], ["manubrium:ns sternum:gs", "рукоятка грудины"], ["fissura:ns ligamentum:gs", "щель связки"], ["vena:np cerebrum:gs", "вены большого мозга|вены головного мозга|вены большого головного мозга|вены мозга"],
+  ["nervus:np brachium:gp", "нервы плеч"], ["retinaculum:np musculus:gp", "удерживатели мышц"], ["tuberculum:np humerus:gp", "бугорки плечевых костей"], ["vagina:np digitus:gp", "влагалища пальцев"],
+  ["arteria:np encephalon:gs", "артерии головного мозга|артерии мозга"], ["musculus:np palatum:gs", "мышцы нёба"], ["ostium:np vena:gp", "устья вен|отверстия вен"], ["arteria:np bucca:gp", "артерии щёк"]];
+function lxParse(code) { return code.split(" ").map(t => { const [l, f] = t.split(":"), w = LX_BY[l]; return { w, f, form: lxForm(w.h[0], w, f) }; }); }
+function lxRuOf(w, f) { return w.rus.split(",")[0].replace(/\s*\(.*?\)/g, "").trim(); }
+function lxStepsHtml(P, dir) {
+  return P.map((p, j) => `<div>${j + 1}) <b class="lat">${esc(p.form)}</b> ← ${esc(lxDict(p.w))} (${esc(p.w.rus)}) — ${p.w.d} скл., ${LX_FN[p.f]}: окончание <b>${LX_END[lxEK(p.w)][p.f]}</b>, ${j ? "второе слово, отвечает на вопрос «чего?»" : "главное слово, «что?»"}</div>`).join("");
+}
+const LX_PH = [];
+LX_RL.forEach((r, i) => { const P = lxParse(r[1]), lat = P.map(p => p.form).join(" "); LX_PH.push({ id: "rl" + i, dir: "rl", q: r[0], a: [lat].concat(r[2] ? [r[2]] : []), P, warn: r[3] || "", pl: P.some(p => p.f[1] === "p") }); });
+LX_LR.forEach((r, i) => { const P = lxParse(r[0]), lat = P.map(p => p.form).join(" "); LX_PH.push({ id: "lr" + i, dir: "lr", q: lat, a: r[1].split("|"), P, warn: "", pl: P.some(p => p.f[1] === "p") }); });
+function lxPhOk(x, val) { return x.dir === "lr" ? x.a.some(a => ruNorm(a) === ruNorm(val)) : x.a.some(a => norm(a) === norm(val)); }
+// written word answer: «nervus, i m» — регистр, пробелы, запятые, дефис не важны
+function lxWordCheck(w, val) {
+  const t = norm(val).split(" ").filter(Boolean), gen = w.d === 1 ? "ae" : "i";
+  while (t.length > 1 && w.h.some(h => norm(h) === t[1])) t.splice(1, 1); // «organon (organum), i n»
+  const okW = t.length && w.h.some(h => norm(h) === t[0]), okG = t[1] === gen, okR = w.ok.includes(t[2]) && t.length === 3;
+  if (okW && okG && okR) return { ok: true };
+  const p = [];
+  if (!okW) p.push(`слово: <b class="lat">${esc(w.h.join(" / "))}</b>`); if (!okG) p.push(`окончание Gen.: <b>-${gen}</b>`); if (!okR) p.push(`род: <b>${w.g}</b>`);
+  return { ok: false, msg: (okW ? "Слово верно, но " : "") + p.join("; ") };
+}
+const lxOther = (arr, x, f, n = 3) => sample([...new Set(arr.filter(y => f(y) !== f(x)).map(f))], n);
+const lxCh = (q, a, o, h, lat) => ({ k: "ch", q, a: [].concat(a), o: [...new Set([].concat(a, o))], h, lat });
+// ---------- lesson content ----------
+let LXD = null;
+function lxBuild() {
+  const D = { mods: [] }, W1 = LX_W.filter(w => w.grp === "f"), WM = LX_W.filter(w => w.grp === "m"), WN = LX_W.filter(w => w.grp === "n"), W2 = WM.concat(WN);
+  const formItem = (w, f, pool) => {
+    const a = lxForms(w, f), q = `<div class="prompt"><span class="lat big">${esc(lxDict(w))}</span><div class="muted">${esc(w.rus)}</div></div><div class="hint" style="text-align:center">Напишите <b>${LX_FN[f]}</b> (${LX_FQ[f]})</div>`;
+    return { id: "f-" + w.id + "-" + f, ans: `${esc(lxDict(w))} → ${LX_FN[f]}: <span class="lat">${esc(a.join(" / "))}</span>`,
+      st: [lxCh(`<span class="lat">${esc(w.h[0])}</span> → ${LX_FN[f]}?`, lxForm(w.h[0], w, f), ["ns", "gs", "np", "gp"].filter(g => lxForm(w.h[0], w, g) !== lxForm(w.h[0], w, f)).map(g => lxForm(w.h[0], w, g)), `${w.d} скл., ${w.g}: ${LX_FN[f]} — ${LX_END[lxEK(w)][f]}`, true),
+        { k: "ty", q, chk: v => ({ ok: a.some(x => norm(x) === norm(v)) }), a: a.join(" / "), lat: true, h: "" }] };
+  };
+  const th = (id, html) => ({ id, th: true, intro: html, st: [] });
+  const endCh = (id, q, a, o, h) => ({ id, ans: esc(q) + " — <b>" + esc(a) + "</b>", st: [lxCh(q, a, o, h)] });
+  // (1) Окончания
+  const E = [
+    { id: "e1", title: "1 склонение", items: [th("e1t", `<span class="badge">Теория · пособие с. 12</span><div class="kl-th"><p>К <b>1 склонению</b> относятся существительные, у которых в словаре после слова стоит <b>-ae</b> (это окончание Gen. Sg.). Почти все они <b>женского рода (f)</b>.</p><p>Словарная форма: <span class="lat">costa, ae f</span> = слово, окончание «чего?», род.</p><table class="kl-t"><tr><th></th><th>ед. ч.</th><th>мн. ч.</th></tr><tr><th>Nom. (что?)</th><td>-a</td><td>-ae</td></tr><tr><th>Gen. (чего?)</th><td>-ae</td><td>-arum</td></tr></table><p>Пример пособия: <span class="lat">ala</span> крыло — <span class="lat">alae</span> крыла — <span class="lat">alae</span> крылья — <span class="lat">alarum</span> крыльев.</p><p>Обратите внимание: <b>-ae</b> бывает и Gen. Sg., и Nom. Pl. — смотрите по смыслу.</p></div>`),
+      endCh("e1a", "1 скл.: окончание Gen. Sg. (чего? ед.)", "-ae", ["-a", "-arum", "-i"], "Его и пишут в словаре: costa, ae f"), endCh("e1b", "1 скл.: окончание Gen. Pl. (чего? мн.)", "-arum", ["-ae", "-orum", "-a"], "ala → alarum"),
+      ...["costa", "vena", "lingua", "fossa"].map((l, i) => formItem(LX_BY[l], ["gs", "np", "gp", "gp"][i]))] },
+    { id: "e2", title: "2 склонение, мужской род", items: [th("e2t", `<span class="badge">Теория · пособие с. 15</span><div class="kl-th"><p>Ко <b>2 склонению</b> относятся слова, у которых в словаре стоит <b>-i</b> (Gen. Sg.). Это слова <b>мужского</b> и <b>среднего</b> рода.</p><p>Мужской род (m) — в Nom. Sg. окончание <b>-us</b>: <span class="lat">nervus, i m</span>.</p><table class="kl-t"><tr><th></th><th>ед. ч.</th><th>мн. ч.</th></tr><tr><th>Nom. (что?)</th><td>-us</td><td>-i</td></tr><tr><th>Gen. (чего?)</th><td>-i</td><td>-orum</td></tr></table><p>Пример пособия: <span class="lat">nervus</span> нерв — <span class="lat">nervi</span> нерва — <span class="lat">nervi</span> нервы — <span class="lat">nervorum</span> нервов.</p></div>`),
+      endCh("e2a", "2 скл., m: Nom. Pl. (что? мн.)", "-i", ["-a", "-orum", "-ae"], "nervus → nervi (нервы)"), endCh("e2b", "2 скл.: Gen. Pl. (чего? мн.)", "-orum", ["-arum", "-i", "-a"], "nervus → nervorum"),
+      ...["ramus", "musculus", "digitus", "humerus"].map((l, i) => formItem(LX_BY[l], ["gs", "np", "gp", "gp"][i]))] },
+    { id: "e3", title: "2 склонение, средний род", items: [th("e3t", `<span class="badge">Теория · пособие с. 15</span><div class="kl-th"><p>Средний род (n) 2 склонения — в Nom. Sg. окончание <b>-um</b> или <b>-on</b> (-on — у слов греческого происхождения: <span class="lat">organon, encephalon, ganglion, colon, skeleton</span>).</p><table class="kl-t"><tr><th></th><th>ед. ч.</th><th>мн. ч.</th></tr><tr><th>Nom. (что?)</th><td>-um, -on</td><td>-a</td></tr><tr><th>Gen. (чего?)</th><td>-i</td><td>-orum</td></tr></table><p>Пример пособия: <span class="lat">tuberculum</span> бугорок — <span class="lat">tuberculi</span> бугорка — <span class="lat">tubercula</span> бугорки — <span class="lat">tuberculorum</span> бугорков; <span class="lat">organon</span> — <span class="lat">organi</span>.</p><p>Главное отличие от мужского рода: во мн. ч. Nom. — <b>-a</b> (а не -i).</p></div>`),
+      endCh("e3a", "2 скл., n: Nom. Pl. (что? мн.)", "-a", ["-i", "-ae", "-orum"], "tuberculum → tubercula"), endCh("e3b", "Какой род у слова на -um, i?", "n — средний", ["m — мужской", "f — женский"], "-um, -on → средний род (пособие с. 15)"),
+      ...["ligamentum", "sternum", "ostium", "encephalon"].map((l, i) => formItem(LX_BY[l], ["gs", "np", "gp", "gs"][i]))] },
+    { id: "e4", title: "Сравниваем 1 и 2 склонение", items: [th("e4t", `<span class="badge">Сводная таблица</span><div class="kl-th"><p>Склонение узнаём по окончанию <b>Gen. Sg.</b> в словаре: <b>-ae</b> → 1 скл., <b>-i</b> → 2 скл.</p>${LX_TBL}<p>Запомните: <b>-arum</b> только в 1 скл., <b>-orum</b> — во 2 скл.</p></div>`),
+      endCh("e4a", "vena, ae f — какое склонение?", "1", ["2", "3"], "-ae → 1 скл."), endCh("e4b", "lobus, i m — какое склонение?", "2", ["1", "3"], "-i → 2 скл."),
+      endCh("e4c", "Окончание -orum — это…", "Gen. Pl. 2 скл.", ["Gen. Pl. 1 скл.", "Nom. Pl. 2 скл.", "Gen. Sg. 2 скл."], "1 скл. — -arum, 2 скл. — -orum"),
+      ...[["scapula", "gp"], ["nasus", "gs"], ["labium", "np"], ["vagina", "np"]].map(([l, f]) => formItem(LX_BY[l], f))] }];
+  D.mods.push({ id: "end", n: "①", title: "Окончания 1 и 2 склонения", sub: "Nom. и Gen., ед. и мн. число", lessons: E,
+    train: () => sample(LX_W.filter(w => w.lat !== "palatum"), 10).map(w => formItem(w, sample(["gs", "np", "gp"], 1)[0])) });
+  // (2)(3) слова
+  const wordItem = (w, pool) => ({ id: "w-" + w.id, ans: `<span class="lat">${esc(lxDict(w))}</span> — ${esc(w.rus)}`,
+    st: [{ k: "fl", w }, lxCh(`<div class="prompt"><span class="lat big">${esc(w.lat)}</span><div class="muted">${esc(lxDict(w))}</div></div>Что значит?`, w.rus, lxOther(pool, w, y => y.rus)),
+      { k: "ty", q: `<div class="prompt"><b style="font-size:1.4rem">${esc(w.rus)}</b></div>`, chk: v => lxWordCheck(w, v), a: lxDict(w), lat: true, h: "Пишите как в словаре: слово, окончание Gen., род. Например: nervus, i m" }] });
+  const wordQuiz = (w, pool) => ({ id: "w-" + w.id, ans: `<span class="lat">${esc(lxDict(w))}</span> — ${esc(w.rus)}`,
+    st: [{ k: "ty", q: `<div class="prompt"><b style="font-size:1.4rem">${esc(w.rus)}</b></div>`, chk: v => lxWordCheck(w, v), a: lxDict(w), lat: true, h: "слово, окончание Gen., род" }] });
+  const chunk = (L, pre) => { const out = []; for (let i = 0; i < L.length; i += 8) out.push(L.slice(i, i + 8)); if (out.length > 1 && out[out.length - 1].length < 5) { const t = out.pop(); out[out.length - 1].push(...t); } return out; };
+  [["m", "②", "Слова 2 скл. мужского рода", WM], ["n", "③", "Слова 2 скл. среднего рода", WN]].forEach(([g, n, title, L]) => {
+    const parts = chunk(L);
+    D.mods.push({ id: "w" + g, n, title, sub: `${L.length} слов из задания преподавателя`, lessons: parts.map((p, i) => ({ id: "w" + g + i, title: `Урок ${i + 1}`, words: p,
+      items: [th("w" + g + i + "t", `<span class="badge">Урок ${i + 1} · ${p.length} слов</span><div class="kl-th"><p>Сначала смотрим карточку, потом выбираем значение, потом <b>пишем сами</b> по-латински со словарной формой, например <span class="lat">${g === "m" ? "nervus, i m" : "ligamentum, i n"}</span>.</p><p>${g === "m" ? "Все слова здесь на <b>-us</b>, 2 скл. (Gen. <b>-i</b>), мужской род <b>m</b>." : "Слова на <b>-um</b> или <b>-on</b>, 2 скл. (Gen. <b>-i</b>), средний род <b>n</b>."}</p><p class="muted">${p.map(w => esc(w.lat)).join(", ")}</p></div>`), ...p.map(w => wordItem(w, L))] })),
+      train: () => sample(L, 12).map(w => wordQuiz(w)) });
+  });
+  // (4) как переводить
+  const ex = (id, title, lines) => th(id, `<span class="badge">${esc(title)}</span><div class="kl-parse">${lines.map(s => `<div>${s}</div>`).join("")}</div>`);
+  const RULE = `<div class="kl-th"><p><b>Правило (пособие с. 11; задание преподавателя):</b> первое существительное — в <b>Nom.</b> (что?), второе — в <b>Gen.</b> (чего?). Порядок слов в латинском и русском одинаковый.</p><p><b>Число:</b> каждое слово берёт своё число из русского: «ветвь» — ед., «ветви» — мн.; «нерва» — ед., «нервов» — мн.</p><p>Шаги: ① найти оба слова в словаре; ② первое поставить в Nom. Sg. или Nom. Pl.; ③ второе — в Gen. Sg. или Gen. Pl. по таблице окончаний.</p></div>${LX_TBL}`;
+  const C = [
+    { id: "c1", title: "Единственное число", items: [th("c1t", `<span class="badge">Как переводить</span>${RULE}`),
+      ex("c1a", "Разбор: «дно матки» → латынь", ["① дно — <span class='lat'>fundus, i m</span>; матка — <span class='lat'>uterus, i m</span>", "② «дно» (что?) — Nom. Sg., 2 скл. m: <b class='lat'>fundus</b>", "③ «матки» (чего? ед.) — Gen. Sg., 2 скл.: окончание -i → <b class='lat'>uteri</b>", "Ответ: <b class='lat'>fundus uteri</b>"]),
+      ex("c1b", "Разбор: «мышца языка» → латынь", ["① мышца — <span class='lat'>musculus, i m</span>; язык — <span class='lat'>lingua, ae f</span> (1 скл.)", "② Nom. Sg.: <b class='lat'>musculus</b>", "③ Gen. Sg. 1 скл.: -ae → <b class='lat'>linguae</b>", "Ответ: <b class='lat'>musculus linguae</b>"]),
+      ex("c1c", "Разбор: cavum cranii → русский", ["① <span class='lat'>cavum</span> — Nom. Sg. от cavum, i n — полость (что?)", "② <span class='lat'>cranii</span> — окончание -i, Gen. Sg. от cranium, i n — черепа (чего?)", "Ответ: <b>полость черепа</b>"]),
+      { id: "c1q1", ans: "fundus uteri", st: [lxCh("«дно матки»: «матки» по-латински", "uteri", ["uterus", "uterorum", "utera"], "чего? ед. ч. → Gen. Sg. -i", true)] },
+      { id: "c1q2", ans: "musculus linguae", st: [lxCh("«мышца языка»", "musculus linguae", ["musculi linguae", "musculus lingua", "musculus linguarum"], "Nom. Sg. + Gen. Sg.", true)] },
+      { id: "c1q3", ans: "полость черепа", st: [lxCh("<span class='lat'>cavum cranii</span>", "полость черепа", ["полости черепа", "череп полости", "полость черепов"], "первое — что?, второе — чего?")] }] },
+    { id: "c2", title: "Множественное число", items: [th("c2t", `<span class="badge">Мн. число</span><div class="kl-th"><p>Если русское слово во мн. ч., берём окончания мн. ч.: Nom. Pl. 1 скл. <b>-ae</b>, 2 скл. m <b>-i</b>, n <b>-a</b>; Gen. Pl. 1 скл. <b>-arum</b>, 2 скл. <b>-orum</b>.</p><p>Бывает и смешанно: «складки прямой кишки» — первое мн. ч., второе ед. ч.</p></div>${LX_TBL}`),
+      ex("c2a", "Разбор: «вены пальцев» → латынь", ["① вена — <span class='lat'>vena, ae f</span>; палец — <span class='lat'>digitus, i m</span>", "② «вены» (что? мн.) — Nom. Pl. 1 скл.: -ae → <b class='lat'>venae</b>", "③ «пальцев» (чего? мн.) — Gen. Pl. 2 скл.: -orum → <b class='lat'>digitorum</b>", "Ответ: <b class='lat'>venae digitorum</b>"]),
+      ex("c2b", "Разбор: «связки позвонков» → латынь", ["① связка — <span class='lat'>ligamentum, i n</span>; позвонок — <span class='lat'>vertebra, ae f</span>", "② Nom. Pl. 2 скл. n: -a → <b class='lat'>ligamenta</b>", "③ Gen. Pl. 1 скл.: -arum → <b class='lat'>vertebrarum</b>", "Ответ: <b class='lat'>ligamenta vertebrarum</b>"]),
+      ex("c2c", "Разбор: nuclei cerebelli → русский", ["① <span class='lat'>nuclei</span> — nucleus, i m (ядро); стоит первым → Nom. Pl. (что? мн.) — ядра", "② <span class='lat'>cerebelli</span> — cerebellum, i n (мозжечок); -i → Gen. Sg. — мозжечка", "Ответ: <b>ядра мозжечка</b>"]),
+      { id: "c2q1", ans: "venae digitorum", st: [lxCh("«вены пальцев»", "venae digitorum", ["venae digitarum", "vena digiti", "venarum digitorum"], "Nom. Pl. + Gen. Pl.", true)] },
+      { id: "c2q2", ans: "ligamenta vertebrarum", st: [lxCh("«связки позвонков»", "ligamenta vertebrarum", ["ligamenti vertebrorum", "ligamenta vertebrae", "ligamentum vertebrarum"], "n мн. ч. → -a; 1 скл. Gen. Pl. → -arum", true)] },
+      { id: "c2q3", ans: "ядра мозжечка", st: [lxCh("<span class='lat'>nuclei cerebelli</span>", "ядра мозжечка", ["ядро мозжечка", "ядра мозжечков", "ядер мозжечка"], "nuclei — первое слово → Nom. Pl.")] }] }];
+  D.mods.push({ id: "how", n: "④", title: "Как переводить словосочетания", sub: "Nom. + Gen., ед. и мн. ч., разбор по шагам", lessons: C, train: null });
+  // (5) тренировка фраз
+  const phItem = (x, full) => {
+    const s0 = x.P[0], s1 = x.P[1], st = [];
+    if (x.dir === "rl") {
+      if (full) {
+        st.push(lxCh(`«${esc(x.q)}» — шаг 1: первое слово (${LX_FQ[s0.f]})`, s0.form, ["ns", "gs", "np", "gp"].map(f => lxForm(s0.w.h[0], s0.w, f)).filter(v => v !== s0.form), `${lxDict(s0.w)} → ${LX_FN[s0.f]}, ${LX_END[lxEK(s0.w)][s0.f]}`, true));
+        st.push(lxCh(`«${esc(x.q)}» — шаг 2: второе слово (${LX_FQ[s1.f]})`, s1.form, ["ns", "gs", "np", "gp"].map(f => lxForm(s1.w.h[0], s1.w, f)).filter(v => v !== s1.form), `${lxDict(s1.w)} → ${LX_FN[s1.f]}, ${LX_END[lxEK(s1.w)][s1.f]}`, true));
+      }
+      st.push({ k: "ty", q: `<div class="prompt"><b style="font-size:1.4rem">${esc(x.q)}</b></div><div class="hint" style="text-align:center">Переведите на латынь</div>`, chk: v => ({ ok: lxPhOk(x, v) }), a: x.a.join(" / "), lat: true, h: x.warn });
+    } else {
+      if (full) {
+        st.push(lxCh(`<span class="lat">${esc(x.q)}</span> — шаг 1: <span class="lat">${esc(s0.form)}</span> — какая форма?`, `${LX_FN[s0.f]} — ${lxDict(s0.w)}`, ["ns", "gs", "np", "gp"].filter(f => f !== s0.f && lxForm(s0.w.h[0], s0.w, f) !== s0.form).map(f => `${LX_FN[f]} — ${lxDict(s0.w)}`), `первое слово — «что?»; ${s0.w.rus}`));
+        st.push(lxCh(`<span class="lat">${esc(x.q)}</span> — шаг 2: <span class="lat">${esc(s1.form)}</span> — какая форма?`, `${LX_FN[s1.f]} — ${lxDict(s1.w)}`, ["ns", "gs", "np", "gp"].filter(f => f !== s1.f && lxForm(s1.w.h[0], s1.w, f) !== s1.form).map(f => `${LX_FN[f]} — ${lxDict(s1.w)}`), `второе слово — «чего?»; ${s1.w.rus}`));
+      }
+      st.push({ k: "ty", q: `<div class="prompt"><span class="lat big">${esc(x.q)}</span></div><div class="hint" style="text-align:center">Переведите на русский</div>`, chk: v => ({ ok: lxPhOk(x, v) }), a: x.a.join(" / "), lat: false, h: "" });
+    }
+    return { id: "p-" + x.id, ans: x.dir === "rl" ? `${esc(x.q)} — <span class="lat">${esc(x.a[0])}</span>` : `<span class="lat">${esc(x.q)}</span> — ${esc(x.a[0])}`, parse: lxStepsHtml(x.P), st };
+  };
+  const RL = LX_PH.filter(x => x.dir === "rl"), LR = LX_PH.filter(x => x.dir === "lr");
+  const T = [["t1", "Рус → лат: ед. ч.", RL.slice(0, 8)], ["t2", "Рус → лат: мн. ч.", RL.slice(8)], ["t3", "Лат → рус: часть 1", LR.slice(0, 8)], ["t4", "Лат → рус: часть 2", LR.slice(8)]];
+  D.mods.push({ id: "tr", n: "⑤", title: "Тренировка: словосочетания преподавателя", sub: `${LX_PH.length} словосочетаний, оба направления; подсказки по шагам → письменный ответ`,
+    lessons: T.map(([id, title, L]) => ({ id, title, items: L.map(x => phItem(x, true)) })), train: () => sample(LX_PH, 10).map(x => phItem(x, false)) });
+  D.phItem = phItem; D.wordQuiz = wordQuiz;
+  return D;
+}
+function lxData() { return LXD || (LXD = lxBuild()); }
+// ---------- runner (same flow as КР-уроки) ----------
+let LS = null;
+function lxFrame(body, foot) {
+  const pct = LS ? Math.min(100, LS.done / Math.max(1, LS.total) * 100) : 0;
+  $("#session").innerHTML = `<div class="s-top"><button class="icon-btn" id="sClose" aria-label="Закрыть">${IC.x}</button>${LS ? `<div class="s-prog"><i style="width:${pct}%"></i></div>` : `<div class="ft-title">📖 Лексминимум · к 10.11</div>`}</div><div class="s-body">${body}</div>${foot}`;
+  $("#sClose").onclick = () => { if (LS && LS.done && !LS.fin && !confirm("Выйти из урока? Прогресс этого урока не сохранится.")) return; if (LS) { const m = LS.mod; LS = null; lxMenu(m); } else closeSession(true); };
+}
+function lxStart(mid, li) {
+  const M = lxData().mods.find(m => m.id === mid), train = li < 0, src = train ? M.train() : M.lessons[li].items;
+  const items = src.map(x => ({ x, st: x.th ? [{ k: "in" }] : x.st, i: 0, ready: 0, miss: 0 }));
+  LS = { mod: mid, li, train, lid: train ? mid + "-tr" : M.lessons[li].id, title: `${M.title} · ${train ? "тренировка" : M.lessons[li].title}`, items, step: -1, last: null, mist: 0, ans: 0, first: 0, done: 0, wrong: new Set(), t0: Date.now() };
+  LS.total = items.reduce((a, it) => a + it.st.length, 0);
+  $("#session").classList.remove("hidden"); document.body.style.overflow = "hidden";
+  lxNext();
+}
+function lxPick() {
+  const open = LS.items.filter(it => !it.done); if (!open.length) return null;
+  const notLast = open.filter(it => it !== LS.last);
+  const th = open.find(it => it.x.th); if (th) return th;
+  const ready = notLast.filter(it => it.i > 0 && it.ready <= LS.step).sort((a, b) => a.ready - b.ready); if (ready.length) return ready[0];
+  const fresh = notLast.filter(it => it.i === 0); if (fresh.length) return fresh[0];
+  return notLast.sort((a, b) => a.ready - b.ready)[0] || open[0];
+}
+function lxNext() {
+  if (!LS) return; LS.step++;
+  const it = lxPick(); if (!it) return lxFinish();
+  LS.cur = it; LS.last = it;
+  const s = it.st[it.i], x = it.x, lbl = it.retry ? "Ещё раз" : LS.train ? "Тренировка" : "Урок";
+  const adv = () => { it.i++; it.ready = LS.step + 1; LS.done++; if (it.i >= it.st.length) it.done = true; lxNext(); };
+  if (s.k === "in") {
+    lxFrame(`<div class="q-kind">Теория</div><div class="card intro kl-intro">${x.intro}</div>`, `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="contBtn">Понятно</button></div></div>`);
+    $("#contBtn").onclick = adv; return;
+  }
+  if (s.k === "fl") {
+    const w = s.w;
+    lxFrame(`<div class="q-kind">Новое слово · карточка</div><div class="card fcard" id="fc"><div class="lat">${esc(w.lat)}</div><div class="gram">${esc(lxDict(w))} · ${w.d} скл., ${esc(LX_GR[w.g])}</div><div class="ru" id="fcRu" style="visibility:hidden">${esc(w.rus)}</div>${w.nt ? `<div class="hint" id="fcNt" style="visibility:hidden">${esc(w.nt)}</div>` : ""}<div class="tap" id="fcTap">нажмите, чтобы увидеть перевод</div></div>`,
+      `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="contBtn">Показать перевод</button></div></div>`);
+    const show = () => { $("#fcRu").style.visibility = ""; const n = $("#fcNt"); if (n) n.style.visibility = ""; $("#fcTap").style.display = "none"; const b = $("#contBtn"); b.textContent = "Запомнил, дальше"; b.onclick = adv; };
+    $("#fc").onclick = show; $("#contBtn").onclick = show; return;
+  }
+  if (s.k === "ch") {
+    const opts = shuffle(s.o);
+    lxFrame(`<div class="q-kind">${lbl}</div><h2 class="q-title">${s.q}</h2><div class="opts two" id="opts">${opts.map((o, i) => `<button class="opt ${s.lat ? "lat-opt" : ""}" data-i="${i}"><span class="k">${i + 1}</span><span>${esc(o)}</span></button>`).join("")}</div>`,
+      `<div class="s-foot" id="foot"><div class="in">${s.h ? `<button class="btn ghost" id="hintBtn">💡 Подсказка</button><div class="hint" id="hintTxt" style="display:none;text-align:center">${esc(s.h)}</div>` : `<div class="hint" style="text-align:center">Выберите вариант</div>`}</div></div>`);
+    const hb = $("#hintBtn"); if (hb) hb.onclick = () => { hb.style.display = "none"; $("#hintTxt").style.display = ""; };
+    const box = $("#opts");
+    box.querySelectorAll(".opt").forEach(b => b.onclick = () => {
+      if (box.classList.contains("locked")) return; box.classList.add("locked");
+      const ok = s.a.includes(opts[+b.dataset.i]);
+      box.querySelectorAll(".opt").forEach((y, i) => { if (s.a.includes(opts[i])) y.classList.add("right"); else if (y === b) y.classList.add("wrong"); else y.classList.add("dim"); });
+      lxFeedback(ok, `<b>${esc(s.a[0])}</b>${s.h ? `<div class="hint">${esc(s.h)}</div>` : ""}`);
+    });
+    return;
+  }
+  lxFrame(`<div class="q-kind">${lbl} · письмо</div><h2 class="q-title">Напишите ответ</h2>${s.q}<div class="type-wrap"><input class="type-in" id="tin" type="text" ${s.lat ? 'lang="la"' : 'lang="ru"'} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">${s.h ? `<div class="hint">${esc(s.h)}</div>` : ""}</div>`, footCheck());
+  const inp = $("#tin"), cb = $("#checkBtn"); setTimeout(() => inp.focus(), 60);
+  inp.oninput = () => cb.disabled = !inp.value.trim();
+  const check = skip => { if (inp.readOnly) return; inp.readOnly = true; const r = skip ? { ok: false } : s.chk(inp.value); inp.classList.add(r.ok ? "right" : "wrong"); inp.blur();
+    lxFeedback(r.ok, `<b class="${s.lat ? "lat" : ""}">${esc(s.a)}</b>${r.msg ? `<div class="hint">${r.msg}</div>` : ""}${x.parse && !r.ok ? `<div class="kl-parse" style="margin-top:6px">${x.parse}</div>` : ""}`); };
+  cb.onclick = () => check(false); $("#skipBtn").onclick = () => check(true);
+  inp.onkeydown = e => { if (e.key === "Enter" && inp.value.trim()) { e.preventDefault(); e.stopPropagation(); check(false); } };
+}
+function lxFeedback(ok, html) {
+  const it = LS.cur; LS.ans++;
+  if (ok) { LS.done++; if (!it.retry) LS.first++; it.i++; it.retry = false; it.ready = LS.step + 2; if (it.i >= it.st.length) it.done = true; }
+  else { LS.mist++; it.miss++; it.retry = true; it.ready = LS.step + 3; LS.total++; LS.wrong.add(it.x); }
+  const foot = $("#foot"); foot.className = "s-foot " + (ok ? "ok" : "bad");
+  foot.innerHTML = `<div class="in"><div class="fb"><div class="ic">${ok ? IC.check : IC.x}</div><div><b>${ok ? sample(["Верно", "Отлично", "Правильно"], 1)[0] : "Неверно"}</b><div class="ans">${html}</div></div></div>
+    <button class="btn ${ok ? "" : "bad"}" id="contBtn">Дальше</button></div>`;
+  const c = $("#contBtn"); c.onclick = lxNext; c.focus({ preventScroll: true });
+}
+function lxFinish() {
+  LS.fin = true; const d = lxGet(), o = d.l[LS.lid]; d.l[LS.lid] = { n: (o ? o.n : 0) + 1, at: Date.now() }; lxSet(d);
+  const M = lxData().mods.find(m => m.id === LS.mod), nx = LS.train ? -1 : M.lessons.findIndex(l => !d.l[l.id]);
+  const acc = LS.ans ? Math.round(LS.first / LS.ans * 100) : 100, wrong = [...LS.wrong], mid = LS.mod;
+  lxFrame(`<div class="done"><div class="seal">${IC.check}</div><h2>${LS.train ? "Тренировка завершена" : "Урок пройден"}</h2><p>${esc(LS.title)}</p>
+    <div class="done-stats"><div class="card stat"><b>${acc}%</b><span>с первого раза</span></div><div class="card stat"><b>${LS.mist}</b><span>ошибок</span></div></div>
+    ${wrong.length ? `<div class="card" style="width:100%;max-width:520px;text-align:left;padding:10px 14px"><div class="hint">Было трудно — повторите:</div>${wrong.map(x => `<div style="margin:4px 0">${x.ans || ""}</div>`).join("")}</div>` : ""}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="row2"><button class="btn ghost" id="lxMenuB">К разделу</button>${nx >= 0 ? `<button class="btn" id="lxNx">Следующий урок</button>` : M.train ? `<button class="btn" id="lxTr">Тренировка</button>` : ""}</div></div></div>`);
+  LS.fin = true;
+  $("#lxMenuB").onclick = () => { LS = null; lxMenu(mid); };
+  const n = $("#lxNx"); if (n) n.onclick = () => lxStart(mid, nx);
+  const t = $("#lxTr"); if (t) t.onclick = () => lxStart(mid, -1);
+}
+// ---------- (6) итоговый лист и опрос ----------
+let LT = null;
+function lxSheet(kind, rows) {
+  const D = lxData();
+  if (!rows) rows = kind === "sam" ? shuffle(sample(LX_PH.filter(x => x.dir === "rl"), 8).concat(sample(LX_PH.filter(x => x.dir === "lr"), 8)))
+    : sample(LX_W.filter(w => w.grp !== "f"), 15).concat(sample(LX_W.filter(w => w.grp === "f"), 5));
+  LT = { kind, rows, retry: !!(LT && LT.kind === kind && rows === LT.wrong) };
+  const sam = kind === "sam";
+  const html = rows.map((r, i) => `<div class="ft-row" id="lxr${i}"><div class="ft-q ${sam && r.dir === "lr" ? "lat" : ""}">${esc(sam ? r.q : r.rus)}<div class="muted" style="font-size:.75rem;font-weight:400">${sam ? (r.dir === "rl" ? "на латынь" : "на русский") : "латынь: слово, Gen., род"}</div></div>
+    <div class="ft-a"><input class="ft-in" data-i="${i}" type="text" ${sam && r.dir === "lr" ? 'lang="ru"' : 'lang="la"'} autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" aria-label="Ответ ${i + 1}"><div class="ft-fix"></div></div></div>`).join("");
+  LS = null;
+  lxFrame(`<h2 class="ft-h">${sam ? "Самостоятельная (как 10.11)" : "Опрос по словам"}</h2><div class="hint">${sam ? "Первое существительное — Nom., второе — Gen. Можно смотреть в тетрадь (как на самостоятельной). Лист проверяется целиком." : "Напишите латинское слово в словарной форме: <span class='lat'>nervus, i m</span>. Как на устном опросе — без подсказок."}</div><div class="card ft-sheet">${html}</div>`,
+    `<div class="s-foot" id="foot"><div class="in"><div class="row2"><button class="btn ghost" id="lxBack">К разделу</button><button class="btn" id="lxSend">Отправить на проверку</button></div></div></div>`);
+  const ins = [...document.querySelectorAll("#session input.ft-in")];
+  ins.forEach((inp, i) => inp.onkeydown = e => { if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); if (ins[i + 1]) ins[i + 1].focus(); else inp.blur(); } });
+  $("#lxBack").onclick = () => { if (ins.some(i => i.value.trim()) && !LT.checked && !confirm("Вернуться? Ответы не сохранятся.")) return; lxMenu("fin"); };
+  $("#lxSend").onclick = () => { const empty = ins.filter(i => !i.value.trim()).length; if (empty && !confirm(`Незаполненных строк: ${empty}. Всё равно отправить?`)) return; lxCheckSheet(ins); };
+}
+function lxCheckSheet(ins) {
+  const sam = LT.kind === "sam", wrong = []; let ok = 0;
+  ins.forEach((inp, i) => {
+    const r = LT.rows[i], res = sam ? { ok: lxPhOk(r, inp.value) } : lxWordCheck(r, inp.value), row = $("#lxr" + i);
+    row.classList.add(res.ok ? "ok" : "bad"); inp.readOnly = true;
+    if (res.ok) ok++; else { wrong.push(r); row.querySelector(".ft-fix").innerHTML = `${IC.x} <b class="${sam && r.dir === "lr" ? "" : "lat"}">${esc(sam ? r.a.join(" / ") : lxDict(r))}</b>${res.msg ? `<div class="hint">${res.msg}</div>` : ""}`; }
+  });
+  LT.checked = true; LT.wrong = wrong; const n = LT.rows.length;
+  if (!LT.retry) { const d = lxGet(), o = d.best[LT.kind]; if (!o || ok / n > o.ok / o.n) { d.best[LT.kind] = { ok, n }; } const k = "fin-" + LT.kind, c = d.l[k]; d.l[k] = { n: (c ? c.n : 0) + 1, at: Date.now() }; lxSet(d); }
+  const best = lxGet().best[LT.kind];
+  $("#session .ft-h").insertAdjacentHTML("afterend", `<div class="card ft-score ${ok === n ? "ok" : ""}"><b>${ok} / ${n}</b><span>${ok === n ? "Без ошибок!" : `ошибок: ${n - ok}`}${best ? ` · лучший результат: ${best.ok}/${best.n}` : ""}</span></div>`);
+  $("#foot .in").innerHTML = `<div class="row2">${wrong.length ? `<button class="btn ghost" id="lxRetry">${IC.repeat} Повторить ошибки</button>` : ""}<button class="btn" id="lxNew">Новый лист</button></div><button class="btn ghost" id="lxBack2" style="margin-top:6px">К разделу</button>`;
+  $("#session .s-body").scrollTop = 0;
+  const rr = $("#lxRetry"); if (rr) rr.onclick = () => lxSheet(LT.kind, LT.wrong);
+  $("#lxNew").onclick = () => { LT = null; lxSheet(sam ? "sam" : "opr"); }; $("#lxBack2").onclick = () => lxMenu("fin");
+}
+function startLex() { document.body.style.overflow = "hidden"; $("#session").classList.remove("hidden"); lxMenu(); }
+function lxMenu(focus) {
+  LS = null; LT = null; const d = lxGet(), D = lxData();
+  const cards = D.mods.map(M => {
+    const L = M.lessons, done = L.map(l => !!d.l[l.id]), nd = done.filter(Boolean).length, nx = done.indexOf(false), tr = d.l[M.id + "-tr"];
+    return `<div class="card kr-card" id="lxc-${M.id}" style="padding:12px 14px;margin:10px 0"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b>${M.n} ${esc(M.title)}</b><span class="muted" style="font-size:.8rem">${nd}/${L.length}${nx < 0 ? " ✓" : ""}</span></div><div class="muted" style="font-size:.8rem">${esc(M.sub)}</div>
+      <div style="margin-top:6px">${L.map((l, i) => `<button class="btn ${i === nx ? "" : "ghost"} kl-l lx-l" data-m="${M.id}" data-li="${i}" style="margin:3px 4px 3px 0;padding:6px 10px;font-size:.85rem">${done[i] ? "✓ " : ""}${esc(l.title)}</button>`).join("")}
+      ${M.train ? `<button class="btn ${nx < 0 ? "" : "ghost"} kl-l lx-l" data-m="${M.id}" data-li="-1" style="margin:3px 4px 3px 0;padding:6px 10px;font-size:.85rem">🔁 Тренировка${tr ? " · " + tr.n : ""}</button>` : ""}</div></div>`;
+  }).join("");
+  const b = d.best, sc = k => b[k] ? `лучший: ${b[k].ok}/${b[k].n}` : "—";
+  const fin = `<div class="card kr-card" id="lxc-fin" style="padding:12px 14px;margin:10px 0"><b>⑥ Итоговый лист</b><div class="muted" style="font-size:.8rem">Проверьте себя в конце — как на паре 10.11</div>
+    <div class="kl-steps" style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-top:8px"><button class="btn ghost" id="lxSam">✍ Самостоятельная<br><small>16 словосочетаний · ${sc("sam")}</small></button><button class="btn ghost" id="lxOpr">🗣 Опрос по словам<br><small>20 слов · ${sc("opr")}</small></button></div></div>`;
+  lxFrame(`<h2 class="ft-h">📖 Лексминимум: 1–2 склонение</h2><div class="hint">К <b>вторнику 10.11</b>: самостоятельная по переводу словосочетаний (можно тетрадь) и устный опрос по словам 1 и 2 склонения. Идите по порядку: сначала <b>учим</b> (①–④), потом <b>тренируемся</b> (⑤), в конце — <b>итоговый лист</b> (⑥). Слова — из задания преподавателя; окончания и правила — пособие Провоторовой (РУДН, 2021). Знак ⚠ — спорное место, уточните у преподавателя.</div>${cards}${fin}`,
+    `<div class="s-foot" id="foot"><div class="in"><button class="btn" id="lxHome">На главную</button></div></div>`);
+  document.querySelectorAll(".lx-l").forEach(x => x.onclick = () => lxStart(x.dataset.m, +x.dataset.li));
+  $("#lxSam").onclick = () => lxSheet("sam"); $("#lxOpr").onclick = () => lxSheet("opr");
+  $("#lxHome").onclick = () => closeSession(true);
+  if (focus) { const c = $("#lxc-" + focus); if (c) c.scrollIntoView({ block: "center" }); }
 }
 
 /* ---------- flashcards (old mode, kept) ---------- */
