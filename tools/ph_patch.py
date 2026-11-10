@@ -9,6 +9,39 @@ html = html_path.read_text(encoding="utf-8")
 bundle = json.loads(Path("/tmp/dp_data.json").read_text(encoding="utf-8"))
 engine = (ROOT / "tools" / "ph_engine.js").read_text(encoding="utf-8")
 
+TARGET_SW = "v12-phdecl-userlist-2026-11-10"
+
+def write_sw():
+    sw = ROOT / "sw.js"
+    st = sw.read_text(encoding="utf-8")
+    import re
+    st2, n = re.subn(r'const VERSION = "[^"]+";', f'const VERSION = "{TARGET_SW}";', st, count=1)
+    if n != 1:
+        raise SystemExit("could not bump sw.js VERSION")
+    sw.write_text(st2, encoding="utf-8")
+    print("sw.js bumped to", TARGET_SW)
+
+if "const DP_POOL =" in html:
+    payload = (
+        "const DP_POOL = "
+        + json.dumps(bundle["pool"], ensure_ascii=False, separators=(",", ":"))
+        + ";\nconst DP_DATA = "
+        + json.dumps(bundle["sec"], ensure_ascii=False, separators=(",", ":"))
+        + ";\n"
+    )
+    a = html.find("const DP_POOL = ")
+    b = html.find("/* ---------- Словосочетания по склонениям", a)
+    if a < 0 or b < 0:
+        raise SystemExit("could not locate DP_POOL/engine markers")
+    html2 = html[:a] + payload + html[b:]
+    for k in ("latAnat.v2", "latAnat.finalTest", "latAnat.krPrep", "latAnat.krLearn", "latAnat.lex2", "latAnat.phDecl"):
+        if k not in html2:
+            raise SystemExit("missing key " + k)
+    html_path.write_text(html2, encoding="utf-8")
+    print("index.html updated in place", html_path.stat().st_size)
+    write_sw()
+    raise SystemExit(0)
+
 def one(old, new, label):
     global html
     n = html.count(old)
@@ -89,9 +122,4 @@ print("index.html", html_path.stat().st_size)
 
 sw = ROOT / "sw.js"
 st = sw.read_text(encoding="utf-8")
-old = 'const VERSION = "v10-lex2-2026-11-04";'
-new = 'const VERSION = "v11-phdecl-2026-11-10";'
-if old not in st:
-    raise SystemExit("sw.js VERSION not at expected v10")
-sw.write_text(st.replace(old, new, 1), encoding="utf-8")
-print("sw.js bumped to v11-phdecl-2026-11-10")
+write_sw()

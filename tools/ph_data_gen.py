@@ -7,6 +7,7 @@ from collections import defaultdict, OrderedDict
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from ph_forms import parse_dict, noun_forms, adj_forms, self_check
+from ph_userlist import parse_minimum, COVERAGE_SPEC, COVERAGE_ADJ
 
 HTML = (ROOT / "index.html").read_text(encoding="utf-8")
 
@@ -26,7 +27,7 @@ TEACHER_PHRASES = extract_js_array(HTML, "TEACHER_PHRASES")
 LEX = {}
 INDEX = defaultdict(list)
 
-def add_noun(dict_form, rus="", src="game", warn=""):
+def add_noun(dict_form, rus="", src="game", warn="", prefer=False):
     meta = parse_dict(dict_form)
     if not meta or meta["kind"] != "noun":
         return None
@@ -34,7 +35,18 @@ def add_noun(dict_form, rus="", src="game", warn=""):
     key = "|".join([nom.lower().replace("(", "").replace(")", ""), meta.get("gen", ""), meta.get("g", "")])
     forms = noun_forms(meta)
     meta = {**meta, "rus": rus, "src": src, "warn": warn, "forms": forms, "key": key}
-    if key not in LEX or (not LEX[key].get("rus") and rus):
+    if prefer:
+        for oldk in list(LEX):
+            old = LEX[oldk]
+            if oldk.startswith("adj:"):
+                continue
+            if old.get("nom", "").lower() != nom.lower():
+                continue
+            if nom.lower() == "os" and old.get("gen") != meta.get("gen"):
+                continue
+            del LEX[oldk]
+        LEX[key] = meta
+    elif key not in LEX or (not LEX[key].get("rus") and rus):
         LEX[key] = meta
     for fk in ("ns", "gs", "np", "gp"):
         INDEX[nrm(forms[fk])].append(key)
@@ -178,8 +190,33 @@ add_adj_forms("major", "большой", ["major", "majus", "majoris", "majores"
 add_adj_forms("minor", "малый", ["minor", "minus", "minoris", "minores", "minora", "minorem", "minorum"], "minor, minus")
 add_adj_forms("teres", "круглый", ["teres", "teretis", "teretes", "teretium", "teretem", "tereti"], "teres, etis")
 
+USER_MIN = parse_minimum()
+USER_NOUNS = USER_MIN["nouns"]
+add_adj("arachnoideus, a, um", "паутинный")
+add_adj("renalis, e", "почечный")
+# Prefer the teacher's lexical minimum (user list) over game wording,
+# except where the textbook clearly contradicts it.
+USER_WARN = {
+    "palatum": "⚠ В минимуме «palatum, i m»; по пособию (с. 15) слова 2 скл. на -um — среднего рода (n). В словосочетаниях формы как у среднего рода; уточните у преподавателя.",
+    "larynx": "⚠ В минимуме «larynx, yngis m»; в карточках игры это слово записано как ж. р. (f). Берём род из минимума (m).",
+}
+for d, ents in USER_NOUNS.items():
+    for e in ents:
+        lat, rus, warn = e["dict"], e["rus"], ""
+        nom = e["nom"].lower()
+        if nom == "palatum":
+            lat, warn = "palatum, i n", USER_WARN["palatum"]
+        elif nom == "larynx":
+            lat, warn = "larynx, ngis m", USER_WARN["larynx"]
+        add_noun(lat, rus, src="user-min", warn=warn, prefer=True)
+# spelling doublets from the same minimum
+if any(v.get("nom") == "peritonaeum" for v in LEX.values()):
+    add_noun("peritoneum, i n", "брюшина", src="user-min")
+if any(v.get("nom") == "caecum" for v in LEX.values()):
+    add_noun("cecum, i n", "слепая кишка", src="user-min")
+
 def lookup_token(tok, prefer_gen=False):
-    keys = INDEX.get(nrm(tok), [])
+    keys = [k for k in INDEX.get(nrm(tok), []) if k in LEX]
     if not keys:
         return None
     nt = nrm(tok)
@@ -353,6 +390,65 @@ for lat, rus in [
 ]:
     add_phrase(lat, rus, "textbook")
 
+for sp in USER_MIN["set_phrases"]:
+    add_phrase(sp["lat"], sp["rus"], "usermin")
+
+def lex_named(alias):
+    alias = alias.lower()
+    if alias == "os_ossis":
+        for v in LEX.values():
+            if v.get("nom") == "os" and (v.get("forms") or {}).get("gs") == "ossis":
+                return v
+        return None
+    if alias == "os_oris":
+        for v in LEX.values():
+            if v.get("nom") == "os" and (v.get("forms") or {}).get("gs") == "oris":
+                return v
+        return None
+    alts = {
+        "peritoneum": ("peritoneum", "peritonaeum"),
+        "caecum": ("caecum", "cecum"),
+        "commissura": ("commissura", "comissura"),
+    }.get(alias, (alias,))
+    for v in LEX.values():
+        if v.get("nom", "").lower() in alts:
+            return v
+    return None
+
+def form_of(alias, slot):
+    ent = lex_named(alias)
+    if not ent:
+        raise SystemExit("coverage: unknown noun " + alias)
+    return ent["forms"][slot]
+
+coverage_added = []
+for a, sa, b, sb, rus, warn in COVERAGE_SPEC:
+    lat = form_of(a, sa) + " " + form_of(b, sb)
+    alts = [lat]
+    if "peritonei" in lat:
+        alts.append(lat.replace("peritonei", "peritonaei"))
+    if "caeci" in lat:
+        alts.append(lat.replace("caeci", "ceci"))
+    add_phrase("|".join(dict.fromkeys(alts)), rus, "pattern", warn)
+    coverage_added.append(lat)
+
+for a, sa, adj, rus, warn in COVERAGE_ADJ:
+    lat = form_of(a, sa) + " " + adj
+    add_phrase(lat, rus, "usermin", warn)
+    coverage_added.append(lat)
+
+for p in POOL.values():
+    if p.get("warn"):
+        continue
+    for tok in p["tokens"]:
+        head = (tok.get("head") or (tok.get("dict") or "").split(",")[0]).lower()
+        for v in LEX.values():
+            if v.get("nom", "").lower() == head and v.get("warn"):
+                p["warn"] = v["warn"]
+                break
+        if p.get("warn"):
+            break
+
 by_decl = {1: [], 2: [], 3: [], 4: [], 5: []}
 unmatched_ph = []
 for p in POOL.values():
@@ -409,7 +505,7 @@ def find_ph(*needles):
             return p
     return None
 
-def chunked(decl, phrases, size=7):
+def chunked(decl, phrases, size=7, label="Фразы преподавателя", tag="p"):
     lessons = []
     nn = [p for p in phrases if not any(t["slot"] == "A" for t in p["tokens"])]
     rest = [p for p in phrases if p not in nn]
@@ -418,12 +514,12 @@ def chunked(decl, phrases, size=7):
     if parts and len(parts[-1]) < 3 and len(parts) > 1:
         parts[-2].extend(parts.pop())
     for i, part in enumerate(parts):
-        items = [th("d%d-p%dt" % (decl, i), "<span class=\"badge\">Словосочетания преподавателя · часть %d</span><div class=\"kl-th\"><p>Разберите каждое: главное слово — «что?» (Nom.), зависимое — «чего?» (Gen.). Число у каждого слова своё. Сначала выбор формы, потом напишите словосочетание целиком.</p></div>" % (i + 1))]
+        items = [th("d%d-%s%dt" % (decl, tag, i), "<span class=\"badge\">%s · часть %d</span><div class=\"kl-th\"><p>Разберите каждое: главное слово — «что?» (Nom.), зависимое — «чего?» (Gen.). Число у каждого слова своё. Сначала выбор формы, потом напишите словосочетание целиком.</p></div>" % (label, i + 1))]
         for p in part:
             it = phrase_item(p, "rl", True)
             if it:
                 items.append(it)
-        lessons.append({"id": "d%d-p%d" % (decl, i), "title": "Фразы преподавателя (%d)" % (i + 1), "items": items})
+        lessons.append({"id": "d%d-%s%d" % (decl, tag, i), "title": "%s (%d)" % (label, i + 1), "items": items})
     return lessons
 
 HINT = {
@@ -573,12 +669,16 @@ def lessons_for(decl, phrases):
         ]})
     for les in L:
         les["items"] = [it for it in les["items"] if it]
-    L.extend(chunked(decl, phrases))
+    rest = [p for p in phrases if p["src"] != "pattern"]
+    pat = [p for p in phrases if p["src"] == "pattern"]
+    L.extend(chunked(decl, rest))
+    if pat:
+        L.extend(chunked(decl, pat, label="Слова минимума", tag="m"))
     return L
 
 TITLES = {1: "I склонение", 2: "II склонение", 3: "III склонение", 4: "IV склонение", 5: "V склонение"}
 DP_DATA = {}
-order = {"prompt": 0, "teacher32": 1, "textbook": 2, "teacher312": 3}
+order = {"prompt": 0, "teacher32": 1, "textbook": 2, "usermin": 3, "teacher312": 4, "pattern": 5}
 warns = []
 for d in (1, 2, 3, 4, 5):
     phs = sorted(by_decl[d], key=lambda p: (order.get(p["src"], 9), p["lat"]))
@@ -597,9 +697,73 @@ for d in (1, 2, 3, 4, 5):
         if p["unmatched"]:
             warns.append((d, p["lat"], "не сопоставлены: " + ", ".join(p["unmatched"])))
 
+NOM_ALIAS = {
+    "peritonaeum": ("peritonaeum", "peritoneum"),
+    "peritoneum": ("peritonaeum", "peritoneum"),
+    "caecum": ("caecum", "cecum"),
+    "cecum": ("caecum", "cecum"),
+    "commissura": ("commissura", "comissura"),
+    "c(a)ecum": ("caecum", "cecum"),
+    "co(m)missura": ("commissura", "comissura"),
+}
+
+def noun_used_in(decl, nom):
+    U = DP_DATA[str(decl)]
+    wants = {nrm(x) for x in NOM_ALIAS.get(nom.lower(), (nom,))}
+    wants.add(nrm(nom))
+    for pid in U["pids"]:
+        p = next(x for x in POOL.values() if x["id"] == pid)
+        for tok in p["tokens"]:
+            if tok.get("slot") not in ("N", "G"):
+                continue
+            heads = {nrm(tok.get("head") or ""), nrm((tok.get("dict") or "").split(",")[0])}
+            heads.update(nrm(f) for f in (tok.get("forms") or []))
+            heads.add(nrm(tok.get("form") or ""))
+            if wants & heads:
+                return True
+    return False
+
+still_missing = {1: [], 2: [], 3: [], 4: [], 5: []}
+for d, ents in USER_NOUNS.items():
+    for e in ents:
+        if not noun_used_in(d, e["nom"]) and not noun_used_in(d, e["dict"].split(",")[0]):
+            still_missing[d].append(e)
+
+# III muscle-agent nouns from the same minimum (listed there as «musculus X»)
+for agent, rus in [
+    ("adductor", "приводящая мышца"),
+    ("buccinator", "щёчная мышца"),
+    ("corrugator", "сморщивающая мышца"),
+    ("masseter", "жевательная мышца"),
+]:
+    if not noun_used_in(3, agent):
+        still_missing[3].append({"nom": agent, "dict": "", "rus": rus})
+
+def drill_lesson(decl, ents):
+    items = [th("d%d-drt" % decl, "<span class=\"badge\">Словарная форма · Gen.</span><div class=\"kl-th\"><p>Эти слова есть в минимуме преподавателя, но отдельной готовой фразы к ним не было. Напишите <b>Gen. Sg.</b> и <b>Gen. Pl.</b> по словарной форме. Затем они входят в словосочетания по правилу «что? + чего?».</p></div>")]
+    for e in ents:
+        ent = lex_named(e["nom"]) or next((v for v in LEX.values() if v.get("nom", "").lower() == e["nom"].lower()), None)
+        if not ent:
+            continue
+        f = ent["forms"]
+        dform = ent.get("dict") or (ent["nom"] + ", " + ent.get("gen", "") + " " + ent.get("g", ""))
+        items.append(ch_item("d%d-gs-%s" % (decl, ent["nom"]), "Gen. Sg. («чего?» ед.) от <span class=\"lat\">%s</span> — %s" % (dform, e.get("rus") or ent.get("rus") or ""), f["gs"], [f["gp"], f["ns"], f["np"]], "Родительный падеж ед. ч."))
+        items.append(ch_item("d%d-gp-%s" % (decl, ent["nom"]), "Gen. Pl. («чего?» мн.) от <span class=\"lat\">%s</span> — %s" % (dform, e.get("rus") or ent.get("rus") or ""), f["gp"], [f["gs"], f["ns"], f["np"]], "Родительный падеж мн. ч."))
+    return {"id": "d%d-dr" % decl, "title": "Слова минимума: Gen. Sg. и Gen. Pl.", "items": [it for it in items if it]}
+
+for d, ents in still_missing.items():
+    if ents:
+        DP_DATA[str(d)]["lessons"].append(drill_lesson(d, ents))
+
 bad = self_check()
 lines = ["FORM CHECK: " + ("OK" if not bad else "FAIL " + "; ".join(bad))]
 lines.append("LEX nouns: %d  adjs: %d" % (sum(1 for k in LEX if not k.startswith("adj:")), sum(1 for k in LEX if k.startswith("adj:"))))
+lines.append("USER MIN nouns I–V: %s" % ({d: len(USER_NOUNS[d]) for d in (1,2,3,4,5)}))
+lines.append("USER MIN adjs: I–II %d, III %d (no new sections)" % (len(USER_MIN["adjs12"]), len(USER_MIN["adjs3"])))
+lines.append("coverage phrases generated: %d" % len(coverage_added))
+for d in (1,2,3,4,5):
+    miss = still_missing[d]
+    lines.append("  still without phrase after coverage, %d скл.: %d %s" % (d, len(miss), ", ".join(e["nom"] for e in miss)))
 lines.append("POOL unique phrases: %d" % len(POOL))
 for d in (1, 2, 3, 4, 5):
     phs = by_decl[d]

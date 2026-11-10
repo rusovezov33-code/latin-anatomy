@@ -60,8 +60,8 @@ for s in [
 ]:
     if s not in html:
         err("missing hook: " + s)
-if 'const VERSION = "v11-phdecl-2026-11-10";' not in sw:
-    err("sw.js VERSION not v11-phdecl-2026-11-10")
+if 'const VERSION = "v12-phdecl-userlist-2026-11-10";' not in sw:
+    err("sw.js VERSION not v12-phdecl-userlist-2026-11-10")
 
 need = {
     "fractura costae": (1, "Nom. Sg.", "Gen. Sg."),
@@ -191,6 +191,34 @@ for d, U in sec.items():
 missing = set(expect_ch) - set(found)
 if missing:
     err("missing theory items " + ", ".join(sorted(missing)))
+
+
+# user-list nouns must appear in matching declension phrases (aliases ok)
+try:
+    from ph_userlist import parse_minimum
+    um = parse_minimum()
+    alias = {"peritonaeum":{"peritoneum","peritonaeum"}, "caecum":{"caecum","cecum"}, "commissura":{"commissura","comissura"}}
+    def used(decl, nom):
+        wants = {re.sub(r"[^a-z0-9]+","", nom.lower())}
+        for a in alias.get(nom.lower(), ()):
+            wants.add(re.sub(r"[^a-z0-9]+","", a))
+        for p in sec[str(decl)]["phrases"] if False else [pool[i] for i in sec[str(decl)]["pids"]]:
+            for tok in p["tokens"]:
+                if tok.get("slot") not in ("N","G"):
+                    continue
+                bag = {re.sub(r"[^a-z0-9]+","", (tok.get("head") or "")) , re.sub(r"[^a-z0-9]+","", (tok.get("dict") or "").split(",")[0])}
+                bag.update(re.sub(r"[^a-z0-9]+","", f) for f in (tok.get("forms") or []))
+                bag.add(re.sub(r"[^a-z0-9]+","", tok.get("form") or ""))
+                if wants & bag:
+                    return True
+        return False
+    for d, ents in um["nouns"].items():
+        miss = [e["nom"] for e in ents if not used(d, e["nom"])]
+        print(f"user-list coverage {d}: {len(ents)-len(miss)}/{len(ents)} missing={miss}")
+        if miss:
+            err("user nouns still missing in decl %s: %s" % (d, ", ".join(miss)))
+except Exception as e:
+    err("user-list coverage check failed: " + str(e))
 
 if errs:
     print("VERIFY FAIL")
