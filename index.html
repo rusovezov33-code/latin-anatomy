@@ -2041,7 +2041,7 @@ const DP_DATA = {"1":{"id":"d1","title":"I склонение","hint":"Перв�
 const DP_KEY = "latAnat.phDecl"; // новый ключ; latAnat.v2 / finalTest / krPrep / krLearn / lex2 не трогаем
 function dpGet() { try { const d = JSON.parse(lsGet(DP_KEY) || "{}") || {}; return { l: d.l || {}, best: d.best || {} }; } catch (e) { return { l: {}, best: {} }; } }
 function dpSet(d) { lsSet(DP_KEY, JSON.stringify(d)); }
-function dpUnit(d) { return DP_DATA[String(d)]; }
+function dpUnit(d) { dpHydrate(); return DP_DATA[String(d)]; }
 function dpTyOk(s, val) {
   if (s.lat) return (s.alts || [s.a]).some(a => norm(a) === norm(val));
   return (s.alts || [s.a]).some(a => ruNorm(a) === ruNorm(val));
@@ -2264,9 +2264,11 @@ function dpCheckSheet(ins) {
   const dn = $("#dpDoneSh"); if (dn) dn.onclick = () => { DT = null; dpMenu(decl); };
 }
 
-(function dpHydrate() {
-  if (!window.DP_DATA || DP_DATA._hydrated) return;
-  const pool = window.DP_POOL || (DP_DATA.pool || {});
+function dpHydrate() {
+  if (typeof DP_DATA === "undefined" || DP_DATA._hydrated) return;
+  const POOLX = (typeof DP_POOL !== "undefined" ? DP_POOL : null) || DP_DATA.pool || {};
+  window.DP_POOL = POOLX;
+  const pool = POOLX;
   const sec = DP_DATA.sec || DP_DATA;
   if (DP_DATA.sec) {
     window.DP_POOL = pool;
@@ -2285,7 +2287,8 @@ function dpCheckSheet(ins) {
     }
   });
   DP_DATA._hydrated = true;
-})();
+}
+dpHydrate();
 
 /* ---------- keyboard (tablets with keyboards, desktops) ---------- */
 document.addEventListener("keydown", e => {
