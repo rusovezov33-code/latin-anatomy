@@ -1,5 +1,5 @@
 /* Латинская анатомия — service worker. Bump VERSION on every release. */
-const VERSION = "v14-fix-blackscreen-2026-11-10";
+const VERSION = "v15-section-replay-2026-11-10";
 const CACHE = "latin-anatomy-" + VERSION;
 const ASSETS = [
   "./",
