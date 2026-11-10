@@ -1,5 +1,5 @@
 /* Латинская анатомия — service worker. Bump VERSION on every release. */
-const VERSION = "v10-lex2-2026-11-04";
+const VERSION = "v11-phdecl-2026-11-10";
 const CACHE = "latin-anatomy-" + VERSION;
 const ASSETS = [
   "./",
