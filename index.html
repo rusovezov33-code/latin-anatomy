@@ -2076,8 +2076,8 @@ function dpUnitBtns(d) {
   const tr = st.l[U.id + "-tr"], br = st.best[d + "-rl"], bl = st.best[d + "-lr"];
   const sc = (x) => x ? `${x.ok}/${x.n}` : "—";
   const roman = { 1: "I", 2: "II", 3: "III", 4: "IV", 5: "V" }[d];
-  return `<div class="ph-box" style="margin-top:10px">
-    <div style="font-weight:650;font-size:.92rem">Словосочетания${d >= 4 ? ` · ${roman} скл.` : ""}</div>
+  return `<div class="ph-box" style="margin-top:12px;padding:10px;border:2px solid var(--accent,#58cc02);border-radius:14px">
+    <div style="font-weight:750;font-size:1rem">🔗 Склонение словосочетаний · ${roman} склонение</div>
     <div class="muted" style="font-size:.75rem;margin:2px 0 6px">${U.phrases.length} ${plural(U.phrases.length, "словосочетание", "словосочетания", "словосочетаний")}${U.warnN ? ` · ⚠ ${U.warnN}` : ""}</div>
     <div class="kl-steps" style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px">
       <button class="btn ghost sm" data-dp="${d},lesson">① Урок<br><small>${nd}/${L.length}${nx < 0 ? " ✓" : ""}</small></button>
